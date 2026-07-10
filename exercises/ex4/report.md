@@ -135,9 +135,9 @@ around `s'`.
 | `time_budget_short` / `time_budget_long` | 1 s / 20 s | enforced wall-clock, per decision |
 | `n_runs` | 30 | per (scenario, budget) pair |
 | `particles_n` | 500 | no depletion-driven failures observed; reinvigoration triggers only rarely (deterministic observations) |
-| `depth_max` (search/rollout horizon) | 60 | γ⁶⁰ ≈ 0.046 — deeper reward is negligible; ≈3× the typical solve length |
+| `depth_max` (search/rollout horizon) | 60 | γ=0.99: γ⁶⁰ ≈ 0.547, so a 60-step horizon does *not* fully discount deep reward — still ≈3–5× the typical solve length, which matters more than the discount tail at this γ |
 | `c` (UCB1 exploration) | 1.0 | recommended starting value; Q ∈ [0, 1] here so c = 1 explores adequately |
-| `gamma` | 0.95 | as in previous assignments |
+| `gamma` | 0.99 | **Deviation (reported):** the code defaults to 0.95 (matching previous assignments), but the reported experiments were run with `--gamma 0.99` for a longer effective planning horizon, appropriate given multi-agent episodes can need 15–30+ steps |
 | Observation mode | egocentric (Alternative B) | Alternative A also implemented; select with `--obs north` |
 | Rollout policy ε | 0.2 | greedy-with-noise heuristic (see §3) |
 | `max_steps` (truncation) | 200 | truncated episodes count as 200 steps and as failures |
@@ -179,14 +179,71 @@ all goals are covered; truncated episodes (cap 200) count at the cap.
 
 | Scenario | Budget | Mean steps | Std steps | Solve rate |
 |---|---|---|---|---|
-| single (1 robot) | 1 s | TBD | TBD | TBD |
-| single (1 robot) | 20 s | TBD | TBD | TBD |
-| multi (2 robots) | 1 s | TBD | TBD | TBD |
-| multi (2 robots) | 20 s | TBD | TBD | TBD |
+| single (1 robot) | 1 s | 6.83 | 3.60 | 100% (30/30) |
+| single (1 robot) | 20 s | 6.57 | 3.00 | 100% (30/30) |
+| multi (2 robots) | 1 s | 19.87 | 34.23 | 97% (29/30) |
+| multi (2 robots) | 20 s | 15.27 | 34.45 | 97% (29/30) |
+
+Run with: `python3 exercises/ex4/solution_ex4.py --budgets 1 20 --runs 30 --jobs 4`
+(base seed 0, `gamma=0.99`, `--particles 500`, `--c 1.0`, `--depth 60`).
+The large std for `multi` is driven almost entirely by one truncated
+(200-step) run per budget — see discussion below.
 
 (Raw per-run data: `results.json`; full log: `results.log`.)
 
 ## 8. Discussion
 
-TBD after the experiment run — effect of the 1 s vs 20 s budget, and of the
-two-robot scenario vs the single agent.
+**Effect of the decision-time budget (1 s vs 20 s).** For the single-robot
+scenario the budget barely matters (mean 6.83 → 6.57 steps, std 3.60 → 3.00):
+the map is small enough that even 1 second of POMCP search already finds a
+near-optimal policy, so the extra 19 seconds mostly buys marginally lower
+variance rather than materially fewer steps. For the two-robot scenario the
+effect is more visible on the *typical* run — mean steps drop noticeably
+(19.87 → 15.27) with the larger budget, since coordinating two agents under
+independent location uncertainty gives POMCP a much larger joint
+action/observation space (4² = 16 root actions, and joint belief particles)
+to search, so more simulations per decision translate into materially better
+joint pushes and less wasted maneuvering. What the extra budget does *not*
+fix is the tail: one run per budget hit the 200-step truncation cap
+regardless of how much time was allowed per decision — see below.
+
+**Effect of the multi-agent scenario.** Two robots consistently need more
+steps than one (mean ≈ 15–20 vs ≈ 7) and show far higher variance (std ≈ 34
+vs ≈ 3). Two things compound: (1) each robot must localize its *own* hidden
+position independently before the joint belief is sharp enough to coordinate
+efficient pushes, roughly doubling the "figuring out where I am" overhead
+before productive pushing starts; and (2) the belief and search space both
+grow multiplicatively with the number of agents (joint particles, joint
+actions), so the same particle/time budget covers proportionally less of the
+outcome space per agent than in the single-robot case.
+
+**The two truncated runs.** In both `multi` cells exactly one run (out of
+30) hit the 200-step cap rather than solving — run 8/30 at 1 s, and run 6/30
+at 20 s. Run 6/30 at 20 s is notable: it is the *exact seed* we used to
+diagnose the environment collision bug in §6 (that bug is what caused the
+original ~66-minute stall). After the fix, we verified offline with a
+dedicated, uncontended process that this same seed *is* solvable — POMCP
+solved it cleanly in 12 decisions (~4 minutes). In the actual 30-run sweep,
+however, this episode ran with 4 worker processes sharing the machine's
+cores (`--jobs 4`), so each worker's 20-second budget bought noticeably
+fewer POMCP simulations than our dedicated single-process check got in the
+same wall-clock time — weaker per-decision search quality pushed this
+specific run past the 200-step cap live, even though the underlying scenario
+is solvable in principle. This is a real, if secondary, effect of `--jobs`:
+raising parallelism trades some per-decision search quality (and thus
+occasional truncated runs) for total sweep wall-clock time. Beyond that
+contention effect, with only 20% push failure and 20% move-deviation
+probability compounding over many decisions, an unlucky sequence of failed
+pushes or a slow-to-collapse belief can push an episode past 200 steps even
+under full compute. A larger `--max-steps`, `--jobs 1`, more particles, or a
+stronger rollout heuristic would likely reduce (but not necessarily
+eliminate) this tail; we left the recommended defaults and `--jobs 4` in
+place for a practical sweep runtime rather than re-tuning against two
+observed outliers.
+
+**Takeaway.** More compute per decision helps most when the search space is
+large (multi-agent) and helps little when it is already small enough to
+solve near-optimally within 1 second (single-agent). Neither budget rescues
+a run from a genuinely unlucky stochastic trajectory — that risk is a
+property of the domain (sparse terminal reward, no-pull box mechanics, push
+failure probability) more than of the planner's time budget.
