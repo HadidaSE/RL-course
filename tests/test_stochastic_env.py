@@ -319,5 +319,92 @@ class TestHeavyBoxPush(unittest.TestCase):
                                msg=f"Expected ~0.80, got {rate:.3f}")
 
 
+class TestSimultaneousCollisions(unittest.TestCase):
+    """Regression tests for the Assignment-4 box-deletion bug: two agents'
+    simultaneous moves/pushes landing on the same cell must be resolved
+    consistently instead of one silently overwriting the other."""
+
+    # agent_0 sits directly above the cell a box will be pushed onto by
+    # agent_1, and both act in the same joint step: agent_0 walks forward
+    # onto (3,3) at the exact moment agent_1 pushes the box from (2,3) to
+    # (3,3). Both destinations coincide — this must cancel both actions,
+    # not silently delete the box.
+    MAP_COLLISION = [
+        "WWWWWW",
+        "W    W",   # row 1 open — required for MiniGrid dummy pos (1,1)
+        "W  A W",   # agent_0 at (3,2), default facing down → forward (3,3)
+        "WAB  W",   # agent_1 at (1,3), box at (2,3); (3,3) is open
+        "W    W",
+        "WWWWWW",
+    ]
+
+    def test_agent_move_into_box_push_destination_is_cancelled(self):
+        """agent_0 tries to walk onto (3,3) at the same moment agent_1
+        pushes the box from (2,3) to (3,3) — both must be cancelled, and
+        the box must NOT be deleted."""
+        env = make_env(move_p=1.0, push_p=1.0, ascii_map=self.MAP_COLLISION)
+        env.reset()
+        # agent_0 default dir=1 (down) → forward = (3,3): the collision cell.
+        # agent_1 needs dir=0 (right) → forward = (2,3): the box.
+        env.agent_dirs["agent_1"] = 0
+        env.agent_objects["agent_1"].dir = 0
+
+        boxes_before = self._count_boxes(env)
+        self.assertEqual(boxes_before, 1)
+
+        env.step({"agent_0": 2, "agent_1": 2})  # both move forward
+
+        boxes_after = self._count_boxes(env)
+        self.assertEqual(
+            boxes_after, boxes_before,
+            "Box was lost — the simultaneous-collision bug has regressed."
+        )
+        # Collision → both actions cancelled, both agents stay put.
+        self.assertEqual(env.agent_positions["agent_0"], (3, 2))
+        self.assertEqual(env.agent_positions["agent_1"], (1, 3))
+        # The box must still be exactly where it started.
+        self.assertEqual(env.core_env.grid.get(2, 3).type, "box")
+
+    @staticmethod
+    def _count_boxes(env):
+        n = 0
+        for y in range(env.height):
+            for x in range(env.width):
+                cell = env.core_env.grid.get(x, y)
+                if cell is not None and getattr(cell, "type", "") == "box":
+                    n += 1
+        return n
+
+    def test_two_agents_pushing_same_small_box_are_both_cancelled(self):
+        """Two agents adjacent to the same small box, both attempting to
+        push it (in different directions) in the same step: neither push
+        may apply, and the box must not duplicate or vanish."""
+        MAP = [
+            "WWWWW",
+            "W   W",
+            "WAB W",
+            "W A W",
+            "WWWWW",
+        ]
+        env = make_env(move_p=1.0, push_p=1.0, ascii_map=MAP)
+        env.reset()
+        # agent_0 at (1,2) facing right → forward = (2,2) = box
+        env.agent_dirs["agent_0"] = 0
+        env.agent_objects["agent_0"].dir = 0
+        # agent_1 at (2,3) facing up → forward = (2,2) = box (same box!)
+        env.agent_dirs["agent_1"] = 3
+        env.agent_objects["agent_1"].dir = 3
+
+        boxes_before = self._count_boxes(env)
+        env.step({"agent_0": 2, "agent_1": 2})
+        boxes_after = self._count_boxes(env)
+
+        self.assertEqual(boxes_after, boxes_before, "Box count changed — duplication or deletion.")
+        self.assertEqual(env.core_env.grid.get(2, 2).type, "box",
+                         "Contested box must stay at its original cell.")
+        self.assertEqual(env.agent_positions["agent_0"], (1, 2))
+        self.assertEqual(env.agent_positions["agent_1"], (2, 3))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -141,6 +141,83 @@ class StochasticMultiAgentBoxPushEnv(MultiAgentBoxPushEnv):
                     agent_intents.pop(agent, None)
 
         # ── Pass 3: Individual forward actions (stochastic) ───────────
+        #
+        # ================================================================
+        # BUG (found while debugging Assignment 4 / POMCP, 2026-07-10):
+        # the ORIGINAL code below resolves each agent's move/push ONE AT A
+        # TIME, checking a destination cell only against static grid
+        # content (walls/boxes already on the grid). It never checks
+        # whether a *different* agent's simultaneous move, or a box a
+        # different agent pushes in this SAME step, would land on the
+        # exact same cell. When that collision happens, both entities end
+        # up "at" the same (x, y): a box object sits there on the grid, and
+        # a colliding agent's position in `self.agent_positions` ALSO
+        # points there. The "Generate observations" block further down
+        # then does, for every agent:
+        #     self.core_env.grid.set(*pos, None)
+        # which blindly clears whatever occupies that agent's cell before
+        # placing the agent sprite — silently deleting the box, since
+        # nothing else in this codebase tracks box positions independently
+        # of the grid. One goal becomes permanently uncoverable and the
+        # episode runs to max_steps without ever raising an error.
+        #
+        # ORIGINAL (buggy) implementation — kept here for reference only,
+        # do not re-enable:
+        #
+        # for agent, intent in agent_intents.items():
+        #     pos          = self.agent_positions[agent]
+        #     intended_dir = intent["dir"]
+        #     fwd_pos      = intent["target_pos"]
+        #     vec          = intent["vec"]
+        #     fwd_cell     = self.core_env.grid.get(*fwd_pos)
+        #
+        #     if fwd_cell is not None and getattr(fwd_cell, "box_size", "") == "small":
+        #         # ── PUSH-SMALL ────────────────────────────────────────
+        #         fwd_fwd_pos  = (fwd_pos[0] + vec[0], fwd_pos[1] + vec[1])
+        #         fwd_fwd_cell = self.core_env.grid.get(*fwd_fwd_pos)
+        #
+        #         # Precondition: cell behind box must be free
+        #         if fwd_fwd_cell is None or fwd_fwd_cell.can_overlap():
+        #             # ── Stochastic push ──────────────────────────────
+        #             if np.random.random() < self.push_success_prob:
+        #                 self.core_env.grid.set(*fwd_fwd_pos, fwd_cell)
+        #                 self.core_env.grid.set(*fwd_pos, None)
+        #                 self.agent_positions[agent] = fwd_pos
+        #             # push fails → agent stays, world unchanged
+        #
+        #     elif fwd_cell is None or fwd_cell.can_overlap():
+        #         # ── MOVE ─────────────────────────────────────────────
+        #         # Precondition met — apply directional stochasticity
+        #         actual_dir     = self._sample_move_dir(intended_dir)
+        #         actual_vec     = DIR_TO_VEC[actual_dir]
+        #         actual_fwd_pos = (pos[0] + actual_vec[0], pos[1] + actual_vec[1])
+        #         actual_fwd_cell = self.core_env.grid.get(*actual_fwd_pos)
+        #
+        #         if actual_fwd_cell is None or actual_fwd_cell.can_overlap():
+        #             self.agent_positions[agent] = actual_fwd_pos
+        #         # else: deviated into obstacle → agent stays, no error
+        #
+        #     # else: intended cell is a wall / other obstacle → no-op
+        #
+        # ================================================================
+        # FIX: resolve every agent's move/push against a *frozen* snapshot
+        # of the grid (no incremental mutation while planning — matches
+        # the "simultaneous joint action" semantics this whole environment
+        # already assumes elsewhere, e.g. the heavy-box joint push). For
+        # each agent we compute a *plan* without touching the grid yet:
+        #   - "push": box moves box_from → box_to, agent moves to box_from
+        #   - "move": agent moves to agent_to
+        # We then collect every cell a plan would claim (an agent's own
+        # landing cell, plus a pushed box's landing cell) and cancel —
+        # revert to a no-op, exactly like the existing "blocked → stay put,
+        # no error" behaviour — every plan that claims a cell also claimed
+        # by another plan. This also naturally covers two agents pushing
+        # the *same* box in the same step (both would claim that box's
+        # cell as their own landing cell) and two boxes being pushed onto
+        # the same destination cell. Only collision-free plans are applied.
+        # ================================================================
+
+        planned = {}  # agent -> resolved outcome (kind, agent_to, [box_from, box_to, box_obj])
         for agent, intent in agent_intents.items():
             pos          = self.agent_positions[agent]
             intended_dir = intent["dir"]
@@ -157,10 +234,14 @@ class StochasticMultiAgentBoxPushEnv(MultiAgentBoxPushEnv):
                 if fwd_fwd_cell is None or fwd_fwd_cell.can_overlap():
                     # ── Stochastic push ──────────────────────────────
                     if np.random.random() < self.push_success_prob:
-                        self.core_env.grid.set(*fwd_fwd_pos, fwd_cell)
-                        self.core_env.grid.set(*fwd_pos, None)
-                        self.agent_positions[agent] = fwd_pos
-                    # push fails → agent stays, world unchanged
+                        planned[agent] = {
+                            "kind": "push",
+                            "agent_to": fwd_pos,
+                            "box_from": fwd_pos,
+                            "box_to": fwd_fwd_pos,
+                            "box_obj": fwd_cell,
+                        }
+                    # push fails → agent stays, world unchanged (no plan)
 
             elif fwd_cell is None or fwd_cell.can_overlap():
                 # ── MOVE ─────────────────────────────────────────────
@@ -171,10 +252,36 @@ class StochasticMultiAgentBoxPushEnv(MultiAgentBoxPushEnv):
                 actual_fwd_cell = self.core_env.grid.get(*actual_fwd_pos)
 
                 if actual_fwd_cell is None or actual_fwd_cell.can_overlap():
-                    self.agent_positions[agent] = actual_fwd_pos
-                # else: deviated into obstacle → agent stays, no error
+                    planned[agent] = {"kind": "move", "agent_to": actual_fwd_pos}
+                # else: deviated into obstacle → agent stays, no error (no plan)
 
-            # else: intended cell is a wall / other obstacle → no-op
+            # else: intended cell is a wall / other obstacle → no-op (no plan)
+
+        # Collect every cell each plan claims (its own landing cell, plus a
+        # pushed box's landing cell).
+        claims = {}  # cell -> list of agents whose plan claims it
+        for agent, plan in planned.items():
+            claimed_cells = {plan["agent_to"]}
+            if plan["kind"] == "push":
+                claimed_cells.add(plan["box_to"])
+            for cell in claimed_cells:
+                claims.setdefault(cell, []).append(agent)
+
+        collided_agents = {
+            agent
+            for agents_here in claims.values()
+            if len(agents_here) > 1
+            for agent in agents_here
+        }
+
+        # Apply only collision-free plans; colliding agents simply stay put.
+        for agent, plan in planned.items():
+            if agent in collided_agents:
+                continue
+            if plan["kind"] == "push":
+                self.core_env.grid.set(*plan["box_from"], None)
+                self.core_env.grid.set(*plan["box_to"], plan["box_obj"])
+            self.agent_positions[agent] = plan["agent_to"]
 
         # ── Check if all boxes are on goal positions → terminate ──────
         if self._all_boxes_on_goals():
