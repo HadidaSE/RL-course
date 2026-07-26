@@ -147,16 +147,3 @@ prefix so the baseline files are untouched):
 
 Measured effect (two-robot map, `multi 1s`, same seeds): mean steps
 33.2 → 17.8, std 51.4 → 8.0, solve rate 92% → 100%.
-
-## 7. Plotting the results (`plot_results.py`)
-
-Turn a results file into graphs (summary bars, solve rate, per-run steps with
-outliers/truncations highlighted, step histogram, and an episode-seconds vs.
-budget check):
-
-```bash
-# from a finished run's JSON:
-.venv/bin/python exercises/ex4/plot_results.py --results exercises/ex4/sweep_improved.json --out exercises/ex4/plots
-# live, from a still-running sweep's log:
-.venv/bin/python exercises/ex4/plot_results.py --from-log exercises/ex4/sweep_improved.log --out exercises/ex4/plots_live
-```
