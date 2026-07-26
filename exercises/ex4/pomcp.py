@@ -44,11 +44,12 @@ class _Node:
             node has not yet been expanded.
     """
 
-    __slots__ = ("visits", "children")
+    __slots__ = ("visits", "children", "preferred")
 
     def __init__(self) -> None:
         self.visits = 0
         self.children: Optional[List["_ActionEdge"]] = None
+        self.preferred: Optional[frozenset] = None
 
 
 class _ActionEdge:
@@ -74,6 +75,8 @@ class POMCPPlanner:
         max_depth: int = 60,
         rollout_policy: Optional[RolloutPolicy] = None,
         rng: Optional[random.Random] = None,
+        reuse_tree: bool = False,
+        preferred_actions: bool = False,
     ) -> None:
         """Configures the planner.
 
@@ -86,6 +89,15 @@ class POMCPPlanner:
             rollout_policy: Policy used beyond the tree; defaults to the
                 greedy-with-noise :class:`HeuristicRolloutPolicy`.
             rng: Random source (a fresh one is created if omitted).
+            reuse_tree: If True, the search tree is retained across decisions
+                and pruned to the ``T(hao)`` subtree after each real
+                action/observation (canonical POMCP, Silver & Veness 2010),
+                so prior simulations are not thrown away every step.  Call
+                :meth:`advance` after each real step and :meth:`reset` at the
+                start of each episode.
+            preferred_actions: If True, when a node is expanded the rollout
+                policy's greedy joint action is marked "preferred" and tried
+                first among untried actions, warm-starting the search.
         """
         self.model = model
         self.gamma = gamma
@@ -94,11 +106,31 @@ class POMCPPlanner:
         self.rng = rng or random.Random()
         self.actions = joint_actions(model.n_agents)
         self.rollout_policy = rollout_policy or HeuristicRolloutPolicy(model)
+        self.reuse_tree = reuse_tree
+        self.preferred_actions = preferred_actions
+        self._root: Optional[_Node] = None
         self.last_stats: dict = {}
 
-    # ------------------------------------------------------------------
-    # Public interface
-    # ------------------------------------------------------------------
+    def reset(self) -> None:
+        """Discards any retained tree; call at the start of each episode."""
+        self._root = None
+
+    def advance(self, action: JointAction, observation: Observation) -> None:
+        """Prunes the retained tree to the ``T(hao)`` subtree.
+
+        No-op unless ``reuse_tree`` is enabled.  If the real observation was
+        never simulated (so no matching child exists), the tree is dropped
+        and the next :meth:`plan` starts fresh.
+
+        Args:
+            action: The joint action actually executed.
+            observation: The real observation returned by the environment.
+        """
+        if not self.reuse_tree or self._root is None or self._root.children is None:
+            self._root = None
+            return
+        edge = next((e for e in self._root.children if e.action == action), None)
+        self._root = edge.children.get(observation) if edge else None
 
     def plan(self, particles: Sequence[State], time_budget: float) -> JointAction:
         """Selects an action for the current belief within a time budget.
@@ -115,13 +147,17 @@ class POMCPPlanner:
             The joint action with the highest estimated value at the root.
         """
         deadline = time.monotonic() + time_budget
-        root = _Node()
+        if self.reuse_tree and self._root is not None:
+            root = self._root
+        else:
+            root = _Node()
         n_simulations = 0
         while time.monotonic() < deadline:
             state = self.rng.choice(particles)
             self._simulate(state, root, 0, deadline)
             n_simulations += 1
 
+        self._root = root
         best = self._best_root_action(root)
         self.last_stats = {
             "simulations": n_simulations,
@@ -133,10 +169,6 @@ class POMCPPlanner:
         }
         return best
 
-    # ------------------------------------------------------------------
-    # Search
-    # ------------------------------------------------------------------
-
     def _simulate(
         self, state: State, node: _Node, depth: int, deadline: float
     ) -> float:
@@ -146,9 +178,10 @@ class POMCPPlanner:
             return 0.0
 
         if node.children is None:
-            # New leaf: expand it, then estimate its value with a rollout.
             node.children = [_ActionEdge(a) for a in self.actions]
             node.visits = 1
+            if self.preferred_actions:
+                node.preferred = self._preferred(state)
             return self._rollout(state, depth)
 
         edge = self._ucb_select(node)
@@ -170,10 +203,22 @@ class POMCPPlanner:
         edge.value += (value - edge.value) / edge.visits
         return value
 
+    def _preferred(self, state: State) -> Optional[frozenset]:
+        """The rollout policy's greedy joint action(s) at ``state``, if any."""
+        greedy = getattr(self.rollout_policy, "greedy", None)
+        if greedy is None:
+            return None
+        return frozenset({greedy(state)})
+
     def _ucb_select(self, node: _Node) -> _ActionEdge:
-        """UCB1 action selection; untried actions are tried first."""
+        """UCB1 action selection; untried actions are tried first, and among
+        untried actions the "preferred" ones (if any) are tried first."""
         untried = [e for e in node.children if e.visits == 0]
         if untried:
+            if node.preferred:
+                pref = [e for e in untried if e.action in node.preferred]
+                if pref:
+                    return self.rng.choice(pref)
             return self.rng.choice(untried)
         log_n = math.log(node.visits)
         return max(
@@ -227,27 +272,94 @@ class HeuristicRolloutPolicy:
     PUSH_BAD = -50.0
     BLOCKED = -1000.0
 
-    def __init__(self, model: BoxPushModel, epsilon: float = 0.2) -> None:
+    def __init__(
+        self,
+        model: BoxPushModel,
+        epsilon: float = 0.2,
+        assign_tasks: bool = False,
+    ) -> None:
+        """Creates the rollout policy.
+
+        Args:
+            model: Generative model (for map/goal geometry).
+            epsilon: Probability of a uniformly random joint action.
+            assign_tasks: If True (and there is more than one agent), each
+                agent is greedily matched to a *distinct* unfinished box, so
+                two robots do not chase the same box.  Otherwise every agent
+                heads toward the nearest unfinished box independently.
+        """
         self.model = model
         self.epsilon = epsilon
+        self.assign_tasks = assign_tasks
         self.all_actions = joint_actions(model.n_agents)
 
     def __call__(self, state: State, rng: random.Random) -> JointAction:
         if rng.random() < self.epsilon:
             return rng.choice(self.all_actions)
+        return self.greedy(state, rng)
+
+    def greedy(
+        self, state: State, rng: Optional[random.Random] = None
+    ) -> JointAction:
+        """Deterministic (greedy) joint action; ties broken by ``rng`` if
+        given, else by the first candidate (so it is usable as a stable
+        "preferred action" outside a rollout)."""
+        assignment = (
+            self._assign(state)
+            if self.assign_tasks and self.model.n_agents > 1
+            else None
+        )
         return tuple(
-            self._best_direction(state, i, rng) for i in range(self.model.n_agents)
+            self._best_direction(
+                state, i, rng, assignment.get(i) if assignment else None
+            )
+            for i in range(self.model.n_agents)
         )
 
-    # ------------------------------------------------------------------
+    def _assign(self, state: State) -> dict:
+        """Greedily matches each agent to a distinct unfinished box."""
+        positions = state.agents
+        pending = [
+            b for b in (set(state.small) | set(state.heavy))
+            if b not in self.model.goals
+        ]
+        assignment: dict = {}
+        used: set = set()
+        pairs = sorted(
+            (self._man(positions[i], b), i, b)
+            for i in range(len(positions))
+            for b in pending
+        )
+        for _, i, b in pairs:
+            if i in assignment or b in used:
+                continue
+            assignment[i] = b
+            used.add(b)
+        for i in range(len(positions)):
+            if i not in assignment and pending:
+                assignment[i] = min(pending, key=lambda b: self._man(positions[i], b))
+        return assignment
 
-    def _best_direction(self, state: State, agent_idx: int, rng: random.Random) -> int:
+    def _best_direction(
+        self,
+        state: State,
+        agent_idx: int,
+        rng: Optional[random.Random],
+        assigned_box: Optional[Cell] = None,
+    ) -> int:
         pos = state.agents[agent_idx]
         small = set(state.small)
         heavy = set(state.heavy)
         boxes = small | heavy
         open_goals = self.model.goals - boxes
-        pending = [b for b in boxes if b not in self.model.goals]
+        if (
+            assigned_box is not None
+            and assigned_box in boxes
+            and assigned_box not in self.model.goals
+        ):
+            move_targets = [assigned_box]
+        else:
+            move_targets = [b for b in boxes if b not in self.model.goals]
 
         scores = []
         for d, vec in enumerate(DIR_VECS):
@@ -264,8 +376,8 @@ class HeuristicRolloutPolicy:
                 else:
                     scores.append(self.BLOCKED)
             elif self.model.is_open(target, small, heavy):
-                if pending:
-                    scores.append(-float(self._dist(target, pending)))
+                if move_targets:
+                    scores.append(-float(self._dist(target, move_targets)))
                 else:
                     scores.append(0.0)
             else:
@@ -273,7 +385,11 @@ class HeuristicRolloutPolicy:
 
         best = max(scores)
         candidates = [d for d, s in enumerate(scores) if s == best]
-        return rng.choice(candidates)
+        return rng.choice(candidates) if rng is not None else candidates[0]
+
+    @staticmethod
+    def _man(a: Cell, b: Cell) -> int:
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
     @staticmethod
     def _dist(cell: Cell, targets) -> int:

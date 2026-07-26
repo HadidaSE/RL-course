@@ -83,6 +83,14 @@ results table in `report.md` (section 6) and write the discussion
                                immediately north of the agent)
 --seed 0                       base seed (run i uses seed base+10000*i)
 --jobs 1                       parallel episodes
+--reuse-tree                   retain the POMCP tree across decisions and
+                               prune it to T(hao) each step (canonical POMCP)
+--smart-rollout                task-allocation rollout: match each agent to a
+                               distinct unfinished box
+--preferred-actions            try the greedy joint action first when a tree
+                               node is expanded
+--improved                     enable all three enhancements at once
+                               (--reuse-tree --smart-rollout --preferred-actions)
 --quick                        3 runs at 0.1 s budget (smoke test)
 --out PREFIX                   output prefix for the .log/.json files
 ```
@@ -108,3 +116,47 @@ is part of why Alternative B is the default.)
   episode hit the 200-step cap and is counted at 200 steps.
 * `pf_accepted` close to N and `reinvig=0` in the DEBUG log — persistent
   reinvigoration would suggest raising `--particles`.
+
+## 6. Optional POMCP enhancements (`pomcp.py`, `solution_ex4.py`)
+
+Three optional planner improvements were added on top of the baseline POMCP.
+They are **off by default** so the original results stay reproducible, and each
+has its own flag (or use `--improved` to turn on all three). All three are
+assignment-compliant: they do not touch the reward/termination/`gamma`
+definition, use no external POMDP/planning/RL library, and never read the
+agent's true hidden location — they operate only on states sampled from the
+belief and on the known map/box layout.
+
+| Flag | What changed | Where |
+|------|--------------|-------|
+| `--reuse-tree` | The search tree is retained between decisions instead of rebuilt from scratch every step. After the real action `a` and observation `o`, the tree is pruned to the `T(hao)` subtree so earlier simulations are reused (canonical Silver & Veness 2010 POMCP). | `POMCPPlanner.plan` (reuses `self._root`), new `POMCPPlanner.reset()` / `POMCPPlanner.advance(action, obs)`; the online loop in `run_episode` calls `planner.reset()` at episode start and `planner.advance(...)` after each belief update. |
+| `--smart-rollout` | The heuristic rollout now greedily matches each agent to a **distinct** unfinished box (nearest-first), so two robots stop chasing the same box. Matching is hand-rolled (no `scipy`). | `HeuristicRolloutPolicy` gains `assign_tasks`, `_assign()` and a deterministic `greedy()`; `_best_direction()` takes an optional `assigned_box`. |
+| `--preferred-actions` | When a tree node is expanded, the rollout policy's greedy joint action is marked "preferred" and tried first among the untried actions, warm-starting the 16-arm joint search. | `_Node.preferred`, `POMCPPlanner._preferred()`, and the preferred-first branch in `POMCPPlanner._ucb_select`. |
+
+Config plumbing lives in `solution_ex4.py`: the `ExperimentConfig` fields
+`reuse_tree` / `smart_rollout` / `preferred_actions`, the matching CLI flags
+(plus `--improved`), and their wiring into the `POMCPPlanner` and rollout
+policy inside `run_episode`.
+
+Run the improved planner over the full experiment (writing to a separate
+prefix so the baseline files are untouched):
+
+```bash
+.venv/bin/python exercises/ex4/solution_ex4.py --budgets 1 20 --runs 30 --jobs 4 --improved --out exercises/ex4/sweep_improved
+```
+
+Measured effect (two-robot map, `multi 1s`, same seeds): mean steps
+33.2 → 17.8, std 51.4 → 8.0, solve rate 92% → 100%.
+
+## 7. Plotting the results (`plot_results.py`)
+
+Turn a results file into graphs (summary bars, solve rate, per-run steps with
+outliers/truncations highlighted, step histogram, and an episode-seconds vs.
+budget check):
+
+```bash
+# from a finished run's JSON:
+.venv/bin/python exercises/ex4/plot_results.py --results exercises/ex4/sweep_improved.json --out exercises/ex4/plots
+# live, from a still-running sweep's log:
+.venv/bin/python exercises/ex4/plot_results.py --from-log exercises/ex4/sweep_improved.log --out exercises/ex4/plots_live
+```

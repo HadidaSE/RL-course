@@ -46,12 +46,7 @@ from pomdp_model import BoxPushModel
 
 logger = logging.getLogger("rl_ex4")
 
-# ---------------------------------------------------------------------------
-# Scenario maps.  'A' marks how many agents exist; with randomized starts the
-# actual initial locations are re-drawn uniformly per run (a sample from b0).
-# ---------------------------------------------------------------------------
 MAPS: Dict[str, List[str]] = {
-    # Single robot, one small box, one goal.
     "single": [
         "WWWWWWW",
         "W A   W",
@@ -60,7 +55,6 @@ MAPS: Dict[str, List[str]] = {
         "W  G  W",
         "WWWWWWW",
     ],
-    # Two robots, two small boxes, two goals.
     "multi": [
         "WWWWWWW",
         "W A A W",
@@ -69,8 +63,6 @@ MAPS: Dict[str, List[str]] = {
         "W G G W",
         "WWWWWWW",
     ],
-    # The full Assignment 1/2 map (heavy box requires a joint push); much
-    # harder under location uncertainty — provided for completeness.
     "ex2": [
         "WWWWWWWW",
         "W  AA  W",
@@ -96,14 +88,13 @@ class ExperimentConfig:
     gamma: float = 0.95
     max_steps: int = 200
     rollout_epsilon: float = 0.2
-    obs_mode: str = "egocentric"  # "egocentric" (Alt. B) or "north" (Alt. A)
+    obs_mode: str = "egocentric"
     base_seed: int = 0
     jobs: int = 1
+    reuse_tree: bool = False
+    smart_rollout: bool = False
+    preferred_actions: bool = False
 
-
-# ---------------------------------------------------------------------------
-# One episode of the online planning loop
-# ---------------------------------------------------------------------------
 
 def run_episode(
     scenario: str,
@@ -142,8 +133,11 @@ def run_episode(
         exploration_c=config.exploration_c,
         max_depth=config.max_depth,
         rng=random.Random(seed + 1_000_003),
+        reuse_tree=config.reuse_tree,
+        preferred_actions=config.preferred_actions,
     )
     planner.rollout_policy.epsilon = config.rollout_epsilon
+    planner.rollout_policy.assign_tasks = config.smart_rollout
     pf = ParticleFilter(
         model, n_particles=config.n_particles, rng=random.Random(seed + 2_000_003)
     )
@@ -151,8 +145,8 @@ def run_episode(
     t_start = time.monotonic()
     obs, _ = env.reset()
     pf.initialize()
-    # The initial observation arrives before any action; condition b0 on it.
     pf.condition_on_observation(obs)
+    planner.reset()
 
     steps = 0
     solved = False
@@ -162,6 +156,7 @@ def run_episode(
         actions = {agent: joint_action[i] for i, agent in enumerate(env.agents)}
         obs, reward, terminated, truncated, _ = env.step(actions)
         stats = pf.update(joint_action, obs)
+        planner.advance(joint_action, obs)
         steps += 1
         if verbose:
             logger.debug(
@@ -189,13 +184,9 @@ def run_episode(
 def _episode_worker(args: Tuple[str, float, int, ExperimentConfig]) -> dict:
     """Top-level worker so episodes can run in a multiprocessing pool."""
     scenario, budget, seed, config = args
-    np.random.seed(seed)  # the course env draws from the global numpy RNG
+    np.random.seed(seed)
     return run_episode(scenario, budget, seed, config)
 
-
-# ---------------------------------------------------------------------------
-# Experiment harness
-# ---------------------------------------------------------------------------
 
 def run_experiment(
     scenario: str, time_budget: float, config: ExperimentConfig
@@ -271,10 +262,6 @@ def print_summary(all_results: List[dict]) -> None:
     logger.info("=" * 68)
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--scenarios", nargs="+", default=["single", "multi"],
@@ -303,6 +290,18 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--jobs", type=int, default=1,
                         help="Parallel episodes (keep <= physical cores so "
                              "each decision still gets a full core).")
+    parser.add_argument("--reuse-tree", action="store_true",
+                        help="Retain the POMCP tree across decisions and "
+                             "prune to T(hao) each step (canonical POMCP).")
+    parser.add_argument("--smart-rollout", action="store_true",
+                        help="Task-allocation rollout: match each agent to a "
+                             "distinct unfinished box.")
+    parser.add_argument("--preferred-actions", action="store_true",
+                        help="Try the greedy joint action first when a node "
+                             "is expanded.")
+    parser.add_argument("--improved", action="store_true",
+                        help="Enable all three enhancements at once "
+                             "(--reuse-tree --smart-rollout --preferred-actions).")
     parser.add_argument("--quick", action="store_true",
                         help="Tiny smoke test (short budgets, few runs).")
     parser.add_argument("--out", default=None,
@@ -344,6 +343,9 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         obs_mode=args.obs,
         base_seed=args.seed,
         jobs=args.jobs,
+        reuse_tree=args.reuse_tree or args.improved,
+        smart_rollout=args.smart_rollout or args.improved,
+        preferred_actions=args.preferred_actions or args.improved,
     )
     if args.quick:
         config.budgets = [0.1]
