@@ -94,6 +94,7 @@ class ExperimentConfig:
     reuse_tree: bool = False
     smart_rollout: bool = False
     preferred_actions: bool = False
+    verbose: bool = False
 
 
 def run_episode(
@@ -182,10 +183,16 @@ def run_episode(
 
 
 def _episode_worker(args: Tuple[str, float, int, ExperimentConfig]) -> dict:
-    """Top-level worker so episodes can run in a multiprocessing pool."""
+    """Top-level worker so episodes can run in a multiprocessing pool.
+
+    Note: per-step DEBUG diagnostics are only emitted when ``config.verbose``
+    is set, and only reach the log file when the worker shares the parent's
+    logging configuration — i.e. under ``--jobs 1``.  Use ``--verbose
+    --jobs 1`` to collect particle-filter statistics.
+    """
     scenario, budget, seed, config = args
     np.random.seed(seed)
-    return run_episode(scenario, budget, seed, config)
+    return run_episode(scenario, budget, seed, config, verbose=config.verbose)
 
 
 def run_experiment(
@@ -302,6 +309,12 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--improved", action="store_true",
                         help="Enable all three enhancements at once "
                              "(--reuse-tree --smart-rollout --preferred-actions).")
+    parser.add_argument("--verbose", action="store_true",
+                        help="Log per-step particle-filter and POMCP "
+                             "diagnostics at DEBUG level (acceptance counts, "
+                             "reinvigoration, simulations). Use with "
+                             "--jobs 1; pool workers do not inherit the "
+                             "parent's logging configuration.")
     parser.add_argument("--quick", action="store_true",
                         help="Tiny smoke test (short budgets, few runs).")
     parser.add_argument("--out", default=None,
@@ -346,6 +359,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         reuse_tree=args.reuse_tree or args.improved,
         smart_rollout=args.smart_rollout or args.improved,
         preferred_actions=args.preferred_actions or args.improved,
+        verbose=args.verbose,
     )
     if args.quick:
         config.budgets = [0.1]

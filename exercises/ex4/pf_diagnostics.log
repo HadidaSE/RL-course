@@ -1,0 +1,207 @@
+17:57:43 INFO Config: ExperimentConfig(scenarios=['single', 'multi'], budgets=[1.0], n_runs=8, n_particles=500, exploration_c=1.0, max_depth=60, gamma=0.99, max_steps=200, rollout_epsilon=0.2, obs_mode='egocentric', base_seed=0, jobs=1, reuse_tree=False, smart_rollout=False, preferred_actions=False, verbose=True)
+17:57:43 INFO Running scenario=single budget=1s (8 runs)...
+17:57:44 DEBUG step=1 action=(3,) reward=0.0 pf_accepted=500/632 reinvig=0 sims=3968
+17:57:45 DEBUG step=2 action=(3,) reward=0.0 pf_accepted=500/634 reinvig=0 sims=5959
+17:57:46 DEBUG step=3 action=(2,) reward=0.0 pf_accepted=500/630 reinvig=0 sims=9796
+17:57:47 DEBUG step=4 action=(1,) reward=0.0 pf_accepted=500/641 reinvig=0 sims=26142
+17:57:48 DEBUG step=5 action=(1,) reward=1.0 pf_accepted=500/500 reinvig=0 sims=90586
+17:57:48 INFO   [single | 1s] run 1/8 — steps=5 solved=True (5s)
+17:57:49 DEBUG step=1 action=(3,) reward=0.0 pf_accepted=500/615 reinvig=0 sims=3291
+17:57:50 DEBUG step=2 action=(3,) reward=0.0 pf_accepted=500/550 reinvig=0 sims=3573
+17:57:51 DEBUG step=3 action=(3,) reward=0.0 pf_accepted=500/5671 reinvig=0 sims=3929
+17:57:52 DEBUG step=4 action=(3,) reward=0.0 pf_accepted=500/628 reinvig=0 sims=5837
+17:57:53 DEBUG step=5 action=(2,) reward=0.0 pf_accepted=500/608 reinvig=0 sims=9826
+17:57:54 DEBUG step=6 action=(1,) reward=0.0 pf_accepted=500/644 reinvig=0 sims=27521
+17:57:55 DEBUG step=7 action=(1,) reward=1.0 pf_accepted=500/500 reinvig=0 sims=92375
+17:57:55 INFO   [single | 1s] run 2/8 — steps=7 solved=True (7s)
+17:57:56 DEBUG step=1 action=(3,) reward=0.0 pf_accepted=500/1087 reinvig=0 sims=3729
+17:57:57 DEBUG step=2 action=(3,) reward=0.0 pf_accepted=500/5938 reinvig=0 sims=4060
+17:57:58 DEBUG step=3 action=(3,) reward=0.0 pf_accepted=500/639 reinvig=0 sims=6035
+17:57:59 DEBUG step=4 action=(2,) reward=0.0 pf_accepted=500/616 reinvig=0 sims=9640
+17:58:00 DEBUG step=5 action=(1,) reward=0.0 pf_accepted=500/605 reinvig=0 sims=27032
+17:58:01 DEBUG step=6 action=(1,) reward=1.0 pf_accepted=500/500 reinvig=0 sims=92762
+17:58:01 INFO   [single | 1s] run 3/8 — steps=6 solved=True (6s)
+17:58:02 DEBUG step=1 action=(3,) reward=0.0 pf_accepted=500/624 reinvig=0 sims=5586
+17:58:03 DEBUG step=2 action=(0,) reward=0.0 pf_accepted=500/599 reinvig=0 sims=9784
+17:58:04 DEBUG step=3 action=(1,) reward=0.0 pf_accepted=500/638 reinvig=0 sims=27611
+17:58:05 DEBUG step=4 action=(1,) reward=1.0 pf_accepted=500/500 reinvig=0 sims=90100
+17:58:05 INFO   [single | 1s] run 4/8 — steps=4 solved=True (4s)
+17:58:06 DEBUG step=1 action=(3,) reward=0.0 pf_accepted=500/648 reinvig=0 sims=3908
+17:58:07 DEBUG step=2 action=(3,) reward=0.0 pf_accepted=500/641 reinvig=0 sims=6087
+17:58:08 DEBUG step=3 action=(2,) reward=0.0 pf_accepted=500/596 reinvig=0 sims=9405
+17:58:09 DEBUG step=4 action=(1,) reward=0.0 pf_accepted=500/625 reinvig=0 sims=29029
+17:58:10 DEBUG step=5 action=(1,) reward=1.0 pf_accepted=500/500 reinvig=0 sims=90412
+17:58:10 INFO   [single | 1s] run 5/8 — steps=5 solved=True (5s)
+17:58:11 DEBUG step=1 action=(3,) reward=0.0 pf_accepted=500/5345 reinvig=0 sims=3285
+17:58:12 DEBUG step=2 action=(2,) reward=0.0 pf_accepted=500/500 reinvig=0 sims=3289
+17:58:13 DEBUG step=3 action=(3,) reward=0.0 pf_accepted=500/633 reinvig=0 sims=3282
+17:58:14 DEBUG step=4 action=(3,) reward=0.0 pf_accepted=500/556 reinvig=0 sims=3645
+17:58:15 DEBUG step=5 action=(3,) reward=0.0 pf_accepted=500/729 reinvig=0 sims=3981
+17:58:16 DEBUG step=6 action=(0,) reward=0.0 pf_accepted=500/613 reinvig=0 sims=5514
+17:58:17 DEBUG step=7 action=(0,) reward=0.0 pf_accepted=500/618 reinvig=0 sims=9761
+17:58:18 DEBUG step=8 action=(1,) reward=0.0 pf_accepted=500/638 reinvig=0 sims=28045
+17:58:19 DEBUG step=9 action=(1,) reward=0.0 pf_accepted=500/500 reinvig=0 sims=92735
+17:58:20 DEBUG step=10 action=(1,) reward=0.0 pf_accepted=500/500 reinvig=0 sims=88283
+17:58:21 DEBUG step=11 action=(1,) reward=1.0 pf_accepted=500/500 reinvig=0 sims=122499
+17:58:21 INFO   [single | 1s] run 6/8 — steps=11 solved=True (11s)
+17:58:22 DEBUG step=1 action=(3,) reward=0.0 pf_accepted=500/997 reinvig=0 sims=3827
+17:58:23 DEBUG step=2 action=(3,) reward=0.0 pf_accepted=500/712 reinvig=0 sims=4111
+17:58:24 DEBUG step=3 action=(2,) reward=0.0 pf_accepted=500/4700 reinvig=0 sims=5130
+17:58:25 DEBUG step=4 action=(2,) reward=0.0 pf_accepted=500/623 reinvig=0 sims=4219
+17:58:26 DEBUG step=5 action=(3,) reward=0.0 pf_accepted=500/639 reinvig=0 sims=5573
+17:58:27 DEBUG step=6 action=(2,) reward=0.0 pf_accepted=500/622 reinvig=0 sims=9354
+17:58:28 DEBUG step=7 action=(1,) reward=0.0 pf_accepted=500/622 reinvig=0 sims=27068
+17:58:29 DEBUG step=8 action=(1,) reward=1.0 pf_accepted=500/500 reinvig=0 sims=89045
+17:58:29 INFO   [single | 1s] run 7/8 — steps=8 solved=True (8s)
+17:58:30 DEBUG step=1 action=(3,) reward=0.0 pf_accepted=500/3642 reinvig=0 sims=3176
+17:58:31 DEBUG step=2 action=(3,) reward=0.0 pf_accepted=500/3136 reinvig=0 sims=3190
+17:58:32 DEBUG step=3 action=(3,) reward=0.0 pf_accepted=500/5164 reinvig=0 sims=4112
+17:58:33 DEBUG step=4 action=(3,) reward=0.0 pf_accepted=500/559 reinvig=0 sims=3528
+17:58:34 DEBUG step=5 action=(3,) reward=0.0 pf_accepted=500/5913 reinvig=0 sims=3971
+17:58:35 DEBUG step=6 action=(3,) reward=0.0 pf_accepted=500/611 reinvig=0 sims=6246
+17:58:36 DEBUG step=7 action=(0,) reward=0.0 pf_accepted=500/5217 reinvig=0 sims=9428
+17:58:37 DEBUG step=8 action=(0,) reward=0.0 pf_accepted=500/633 reinvig=0 sims=9536
+17:58:38 DEBUG step=9 action=(1,) reward=0.0 pf_accepted=500/2358 reinvig=0 sims=26962
+17:58:39 DEBUG step=10 action=(1,) reward=0.0 pf_accepted=500/634 reinvig=0 sims=28007
+17:58:40 DEBUG step=11 action=(1,) reward=0.0 pf_accepted=500/500 reinvig=0 sims=90221
+17:58:41 DEBUG step=12 action=(1,) reward=1.0 pf_accepted=500/500 reinvig=0 sims=88551
+17:58:41 INFO   [single | 1s] run 8/8 — steps=12 solved=True (12s)
+17:58:41 INFO Running scenario=multi budget=1s (8 runs)...
+17:58:42 DEBUG step=1 action=(3, 3) reward=0.0 pf_accepted=500/805 reinvig=0 sims=1453
+17:58:44 DEBUG step=2 action=(3, 0) reward=0.0 pf_accepted=500/777 reinvig=0 sims=1589
+17:58:45 DEBUG step=3 action=(2, 2) reward=0.0 pf_accepted=500/783 reinvig=0 sims=1641
+17:58:46 DEBUG step=4 action=(1, 3) reward=0.0 pf_accepted=500/6705 reinvig=0 sims=1857
+17:58:47 DEBUG step=5 action=(1, 2) reward=0.0 pf_accepted=500/500 reinvig=0 sims=1953
+17:58:48 DEBUG step=6 action=(1, 3) reward=0.0 pf_accepted=500/620 reinvig=0 sims=2097
+17:58:49 DEBUG step=7 action=(1, 3) reward=0.0 pf_accepted=500/627 reinvig=0 sims=2654
+17:58:50 DEBUG step=8 action=(3, 0) reward=0.0 pf_accepted=500/6509 reinvig=0 sims=3435
+17:58:51 DEBUG step=9 action=(3, 3) reward=0.0 pf_accepted=500/787 reinvig=0 sims=2909
+17:58:52 DEBUG step=10 action=(3, 0) reward=0.0 pf_accepted=500/609 reinvig=0 sims=4180
+17:58:53 DEBUG step=11 action=(2, 1) reward=0.0 pf_accepted=500/6350 reinvig=0 sims=5997
+17:58:54 DEBUG step=12 action=(3, 1) reward=0.0 pf_accepted=500/25218 reinvig=0 sims=15387
+17:58:55 DEBUG step=13 action=(2, 1) reward=1.0 pf_accepted=500/784 reinvig=0 sims=17982
+17:58:55 INFO   [multi | 1s] run 1/8 — steps=13 solved=True (13s)
+17:58:56 DEBUG step=1 action=(0, 1) reward=0.0 pf_accepted=500/3308 reinvig=0 sims=1755
+17:58:57 DEBUG step=2 action=(3, 1) reward=0.0 pf_accepted=500/6354 reinvig=0 sims=1860
+17:58:58 DEBUG step=3 action=(3, 1) reward=0.0 pf_accepted=500/611 reinvig=0 sims=2081
+17:58:59 DEBUG step=4 action=(3, 1) reward=0.0 pf_accepted=500/615 reinvig=0 sims=2450
+17:59:00 DEBUG step=5 action=(0, 3) reward=0.0 pf_accepted=500/758 reinvig=0 sims=3124
+17:59:01 DEBUG step=6 action=(1, 3) reward=0.0 pf_accepted=500/3006 reinvig=0 sims=5342
+17:59:02 DEBUG step=7 action=(1, 0) reward=0.0 pf_accepted=500/685 reinvig=0 sims=6067
+17:59:03 DEBUG step=8 action=(1, 3) reward=1.0 pf_accepted=500/500 reinvig=0 sims=16647
+17:59:03 INFO   [multi | 1s] run 2/8 — steps=8 solved=True (8s)
+17:59:04 DEBUG step=1 action=(1, 1) reward=0.0 pf_accepted=500/626 reinvig=0 sims=1402
+17:59:05 DEBUG step=2 action=(1, 2) reward=0.0 pf_accepted=500/1080 reinvig=0 sims=1422
+17:59:06 DEBUG step=3 action=(2, 0) reward=0.0 pf_accepted=500/7032 reinvig=0 sims=1433
+17:59:07 DEBUG step=4 action=(0, 1) reward=0.0 pf_accepted=500/641 reinvig=0 sims=1433
+17:59:08 DEBUG step=5 action=(0, 0) reward=0.0 pf_accepted=500/561 reinvig=0 sims=1424
+17:59:09 DEBUG step=6 action=(3, 1) reward=0.0 pf_accepted=500/742 reinvig=0 sims=1408
+17:59:10 DEBUG step=7 action=(1, 3) reward=0.0 pf_accepted=500/776 reinvig=0 sims=1401
+17:59:11 DEBUG step=8 action=(2, 0) reward=0.0 pf_accepted=500/544 reinvig=0 sims=1404
+17:59:12 DEBUG step=9 action=(2, 2) reward=0.0 pf_accepted=500/828 reinvig=0 sims=1432
+17:59:13 DEBUG step=10 action=(0, 2) reward=0.0 pf_accepted=500/779 reinvig=0 sims=1381
+17:59:14 DEBUG step=11 action=(3, 2) reward=0.0 pf_accepted=500/798 reinvig=0 sims=1399
+17:59:15 DEBUG step=12 action=(1, 1) reward=0.0 pf_accepted=500/626 reinvig=0 sims=1388
+17:59:17 DEBUG step=13 action=(0, 2) reward=0.0 pf_accepted=500/48804 reinvig=0 sims=1388
+17:59:18 DEBUG step=14 action=(2, 1) reward=0.0 pf_accepted=500/782 reinvig=0 sims=1381
+17:59:19 DEBUG step=15 action=(2, 2) reward=0.0 pf_accepted=500/550 reinvig=0 sims=1454
+17:59:20 DEBUG step=16 action=(3, 0) reward=0.0 pf_accepted=500/5372 reinvig=0 sims=1443
+17:59:21 DEBUG step=17 action=(2, 0) reward=0.0 pf_accepted=500/802 reinvig=0 sims=1385
+17:59:22 DEBUG step=18 action=(2, 1) reward=0.0 pf_accepted=500/500 reinvig=0 sims=1417
+17:59:23 DEBUG step=19 action=(3, 1) reward=0.0 pf_accepted=500/631 reinvig=0 sims=1420
+17:59:24 DEBUG step=20 action=(3, 0) reward=0.0 pf_accepted=500/2089 reinvig=0 sims=1514
+17:59:25 DEBUG step=21 action=(3, 0) reward=0.0 pf_accepted=500/2518 reinvig=0 sims=1626
+17:59:26 DEBUG step=22 action=(0, 0) reward=0.0 pf_accepted=500/6717 reinvig=0 sims=1635
+17:59:27 DEBUG step=23 action=(3, 1) reward=0.0 pf_accepted=500/643 reinvig=0 sims=1552
+17:59:28 DEBUG step=24 action=(0, 1) reward=0.0 pf_accepted=500/636 reinvig=0 sims=1723
+17:59:29 DEBUG step=25 action=(1, 1) reward=0.0 pf_accepted=500/618 reinvig=0 sims=1802
+17:59:30 DEBUG step=26 action=(1, 1) reward=0.0 pf_accepted=500/500 reinvig=0 sims=1923
+17:59:31 DEBUG step=27 action=(1, 1) reward=0.0 pf_accepted=500/500 reinvig=0 sims=2079
+17:59:32 DEBUG step=28 action=(3, 1) reward=0.0 pf_accepted=500/637 reinvig=0 sims=2123
+17:59:33 DEBUG step=29 action=(3, 0) reward=0.0 pf_accepted=500/5153 reinvig=0 sims=2289
+17:59:34 DEBUG step=30 action=(3, 1) reward=0.0 pf_accepted=500/651 reinvig=0 sims=2492
+17:59:35 DEBUG step=31 action=(0, 1) reward=0.0 pf_accepted=500/631 reinvig=0 sims=3028
+17:59:36 DEBUG step=32 action=(1, 1) reward=0.0 pf_accepted=500/603 reinvig=0 sims=4329
+17:59:37 DEBUG step=33 action=(1, 1) reward=1.0 pf_accepted=500/630 reinvig=0 sims=13807
+17:59:37 INFO   [multi | 1s] run 3/8 — steps=33 solved=True (34s)
+17:59:38 DEBUG step=1 action=(3, 0) reward=0.0 pf_accepted=500/765 reinvig=0 sims=1808
+17:59:39 DEBUG step=2 action=(0, 3) reward=0.0 pf_accepted=500/618 reinvig=0 sims=2535
+17:59:40 DEBUG step=3 action=(1, 1) reward=0.0 pf_accepted=500/764 reinvig=0 sims=3134
+17:59:41 DEBUG step=4 action=(1, 1) reward=1.0 pf_accepted=500/500 reinvig=0 sims=7828
+17:59:41 INFO   [multi | 1s] run 4/8 — steps=4 solved=True (4s)
+17:59:42 DEBUG step=1 action=(1, 3) reward=0.0 pf_accepted=500/806 reinvig=0 sims=1580
+17:59:43 DEBUG step=2 action=(3, 0) reward=0.0 pf_accepted=500/770 reinvig=0 sims=1722
+17:59:44 DEBUG step=3 action=(3, 1) reward=0.0 pf_accepted=500/789 reinvig=0 sims=1860
+17:59:45 DEBUG step=4 action=(3, 1) reward=0.0 pf_accepted=500/636 reinvig=0 sims=2319
+17:59:46 DEBUG step=5 action=(2, 1) reward=0.0 pf_accepted=500/627 reinvig=0 sims=3372
+17:59:47 DEBUG step=6 action=(1, 3) reward=0.0 pf_accepted=500/6501 reinvig=0 sims=4737
+17:59:48 DEBUG step=7 action=(1, 3) reward=1.0 pf_accepted=500/783 reinvig=0 sims=16781
+17:59:48 INFO   [multi | 1s] run 5/8 — steps=7 solved=True (7s)
+17:59:49 DEBUG step=1 action=(0, 0) reward=0.0 pf_accepted=500/17229 reinvig=0 sims=1739
+17:59:50 DEBUG step=2 action=(1, 2) reward=0.0 pf_accepted=500/800 reinvig=0 sims=1666
+17:59:51 DEBUG step=3 action=(2, 3) reward=0.0 pf_accepted=500/1267 reinvig=0 sims=1741
+17:59:52 DEBUG step=4 action=(1, 3) reward=0.0 pf_accepted=500/500 reinvig=0 sims=1700
+17:59:53 DEBUG step=5 action=(3, 1) reward=0.0 pf_accepted=500/792 reinvig=0 sims=1672
+17:59:54 DEBUG step=6 action=(3, 1) reward=0.0 pf_accepted=500/12789 reinvig=0 sims=1807
+17:59:55 DEBUG step=7 action=(3, 1) reward=0.0 pf_accepted=500/772 reinvig=0 sims=1774
+17:59:56 DEBUG step=8 action=(3, 1) reward=0.0 pf_accepted=500/619 reinvig=0 sims=2221
+17:59:57 DEBUG step=9 action=(3, 3) reward=0.0 pf_accepted=500/628 reinvig=0 sims=2354
+17:59:58 DEBUG step=10 action=(2, 3) reward=0.0 pf_accepted=500/5058 reinvig=0 sims=2626
+17:59:59 DEBUG step=11 action=(0, 3) reward=0.0 pf_accepted=500/5958 reinvig=0 sims=2451
+18:00:00 DEBUG step=12 action=(0, 3) reward=0.0 pf_accepted=500/803 reinvig=0 sims=2709
+18:00:01 DEBUG step=13 action=(0, 0) reward=0.0 pf_accepted=500/6358 reinvig=0 sims=3801
+18:00:02 DEBUG step=14 action=(0, 0) reward=0.0 pf_accepted=500/6405 reinvig=0 sims=4073
+18:00:03 DEBUG step=15 action=(1, 3) reward=0.0 pf_accepted=500/801 reinvig=0 sims=5487
+18:00:05 DEBUG step=16 action=(1, 0) reward=1.0 pf_accepted=500/552 reinvig=0 sims=15975
+18:00:05 INFO   [multi | 1s] run 6/8 — steps=16 solved=True (17s)
+18:00:06 DEBUG step=1 action=(3, 0) reward=0.0 pf_accepted=500/2678 reinvig=0 sims=1399
+18:00:07 DEBUG step=2 action=(3, 1) reward=0.0 pf_accepted=500/5034 reinvig=0 sims=1461
+18:00:08 DEBUG step=3 action=(3, 3) reward=0.0 pf_accepted=500/778 reinvig=0 sims=1471
+18:00:09 DEBUG step=4 action=(3, 3) reward=0.0 pf_accepted=500/780 reinvig=0 sims=1565
+18:00:10 DEBUG step=5 action=(0, 3) reward=0.0 pf_accepted=500/781 reinvig=0 sims=2025
+18:00:11 DEBUG step=6 action=(1, 2) reward=0.0 pf_accepted=500/773 reinvig=0 sims=2578
+18:00:12 DEBUG step=7 action=(1, 1) reward=0.0 pf_accepted=500/604 reinvig=0 sims=3697
+18:00:13 DEBUG step=8 action=(1, 1) reward=1.0 pf_accepted=500/500 reinvig=0 sims=10942
+18:00:13 INFO   [multi | 1s] run 7/8 — steps=8 solved=True (8s)
+18:00:14 DEBUG step=1 action=(1, 2) reward=0.0 pf_accepted=500/5044 reinvig=0 sims=1373
+18:00:15 DEBUG step=2 action=(2, 0) reward=0.0 pf_accepted=500/8191 reinvig=0 sims=1383
+18:00:16 DEBUG step=3 action=(0, 0) reward=0.0 pf_accepted=500/3916 reinvig=0 sims=1409
+18:00:17 DEBUG step=4 action=(1, 1) reward=0.0 pf_accepted=500/652 reinvig=0 sims=1385
+18:00:18 DEBUG step=5 action=(0, 2) reward=0.0 pf_accepted=500/15624 reinvig=0 sims=1384
+18:00:19 DEBUG step=6 action=(1, 0) reward=0.0 pf_accepted=500/2971 reinvig=0 sims=1380
+18:00:20 DEBUG step=7 action=(2, 1) reward=0.0 pf_accepted=500/5039 reinvig=0 sims=1387
+18:00:21 DEBUG step=8 action=(1, 0) reward=0.0 pf_accepted=500/758 reinvig=0 sims=1400
+18:00:22 DEBUG step=9 action=(0, 2) reward=0.0 pf_accepted=500/6285 reinvig=0 sims=1410
+18:00:23 DEBUG step=10 action=(1, 1) reward=0.0 pf_accepted=500/4468 reinvig=0 sims=1386
+18:00:24 DEBUG step=11 action=(1, 0) reward=0.0 pf_accepted=500/5871 reinvig=0 sims=1377
+18:00:25 DEBUG step=12 action=(0, 0) reward=0.0 pf_accepted=500/703 reinvig=0 sims=1406
+18:00:26 DEBUG step=13 action=(2, 0) reward=0.0 pf_accepted=500/554 reinvig=0 sims=1421
+18:00:27 DEBUG step=14 action=(0, 3) reward=0.0 pf_accepted=500/3333 reinvig=0 sims=1423
+18:00:28 DEBUG step=15 action=(3, 3) reward=0.0 pf_accepted=500/3961 reinvig=0 sims=1420
+18:00:29 DEBUG step=16 action=(0, 3) reward=0.0 pf_accepted=500/2157 reinvig=0 sims=1412
+18:00:30 DEBUG step=17 action=(2, 3) reward=0.0 pf_accepted=500/799 reinvig=0 sims=1499
+18:00:31 DEBUG step=18 action=(0, 2) reward=0.0 pf_accepted=500/6013 reinvig=0 sims=1647
+18:00:32 DEBUG step=19 action=(1, 0) reward=0.0 pf_accepted=500/500 reinvig=0 sims=1604
+18:00:33 DEBUG step=20 action=(3, 2) reward=0.0 pf_accepted=500/795 reinvig=0 sims=1594
+18:00:34 DEBUG step=21 action=(3, 1) reward=0.0 pf_accepted=500/819 reinvig=0 sims=1693
+18:00:35 DEBUG step=22 action=(3, 1) reward=0.0 pf_accepted=500/620 reinvig=0 sims=2021
+18:00:36 DEBUG step=23 action=(2, 3) reward=0.0 pf_accepted=500/4247 reinvig=0 sims=2309
+18:00:37 DEBUG step=24 action=(0, 1) reward=0.0 pf_accepted=500/500 reinvig=0 sims=2095
+18:00:38 DEBUG step=25 action=(2, 1) reward=0.0 pf_accepted=500/604 reinvig=0 sims=2314
+18:00:40 DEBUG step=26 action=(2, 3) reward=0.0 pf_accepted=500/47999 reinvig=0 sims=2597
+18:00:41 DEBUG step=27 action=(2, 3) reward=0.0 pf_accepted=500/815 reinvig=0 sims=2473
+18:00:42 DEBUG step=28 action=(2, 3) reward=0.0 pf_accepted=500/6315 reinvig=0 sims=3526
+18:00:43 DEBUG step=29 action=(1, 3) reward=0.0 pf_accepted=500/775 reinvig=0 sims=5090
+18:00:44 DEBUG step=30 action=(1, 0) reward=0.0 pf_accepted=500/500 reinvig=0 sims=16282
+18:00:45 DEBUG step=31 action=(1, 0) reward=1.0 pf_accepted=500/500 reinvig=0 sims=27953
+18:00:45 INFO   [multi | 1s] run 8/8 — steps=31 solved=True (32s)
+18:00:45 INFO 
+18:00:45 INFO ====================================================================
+18:00:45 INFO RESULTS SUMMARY
+18:00:45 INFO ====================================================================
+18:00:45 INFO Scenario     Budget       Mean steps    Std steps   Solve rate
+18:00:45 INFO --------------------------------------------------------------------
+18:00:45 INFO single       1s                 7.25         2.73         100%
+18:00:45 INFO multi        1s                15.00        10.42         100%
+18:00:45 INFO ====================================================================
+18:00:45 INFO Raw results written to exercises/ex4/pf_diagnostics.json

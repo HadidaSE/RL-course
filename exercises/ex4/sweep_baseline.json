@@ -1,0 +1,646 @@
+[
+  {
+    "scenario": "single",
+    "budget": 1.0,
+    "obs_mode": "egocentric",
+    "mean_steps": 6.833333333333333,
+    "std_steps": 3.751296072322501,
+    "solve_rate": 1.0,
+    "n_runs": 30,
+    "runs": [
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 5.024794416967779
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 7.058847500011325
+      },
+      {
+        "steps": 6,
+        "solved": true,
+        "seconds": 6.058775915997103
+      },
+      {
+        "steps": 4,
+        "solved": true,
+        "seconds": 4.018868624931201
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 5.024104041978717
+      },
+      {
+        "steps": 11,
+        "solved": true,
+        "seconds": 11.072968041989952
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 8.063919083913788
+      },
+      {
+        "steps": 18,
+        "solved": true,
+        "seconds": 18.301140790921636
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 9.087421875097789
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 5.0269224169896916
+      },
+      {
+        "steps": 2,
+        "solved": true,
+        "seconds": 2.012844374985434
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 9.071445583947934
+      },
+      {
+        "steps": 2,
+        "solved": true,
+        "seconds": 2.0091243750648573
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 7.1262636670144275
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 7.288221208960749
+      },
+      {
+        "steps": 12,
+        "solved": true,
+        "seconds": 12.144954666960984
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 5.02440654207021
+      },
+      {
+        "steps": 2,
+        "solved": true,
+        "seconds": 2.0105850419495255
+      },
+      {
+        "steps": 4,
+        "solved": true,
+        "seconds": 4.021491916035302
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 8.0402854999993
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 5.030131374951452
+      },
+      {
+        "steps": 2,
+        "solved": true,
+        "seconds": 2.0097798749338835
+      },
+      {
+        "steps": 12,
+        "solved": true,
+        "seconds": 12.187140207970515
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 7.064313082955778
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 8.08171591698192
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 5.029807541985065
+      },
+      {
+        "steps": 2,
+        "solved": true,
+        "seconds": 2.0102200829423964
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 9.103490665904246
+      },
+      {
+        "steps": 14,
+        "solved": true,
+        "seconds": 14.185673541971482
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 5.0247151660732925
+      }
+    ]
+  },
+  {
+    "scenario": "single",
+    "budget": 20.0,
+    "obs_mode": "egocentric",
+    "mean_steps": 6.633333333333334,
+    "std_steps": 3.038457210859192,
+    "solve_rate": 1.0,
+    "n_runs": 30,
+    "runs": [
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 100.15302262501791
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 140.2915597499814
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 160.34039775002748
+      },
+      {
+        "steps": 4,
+        "solved": true,
+        "seconds": 80.10392012505326
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 100.14179983304348
+      },
+      {
+        "steps": 10,
+        "solved": true,
+        "seconds": 200.3954558329424
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 160.36739274999127
+      },
+      {
+        "steps": 12,
+        "solved": true,
+        "seconds": 240.54041037498973
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 180.31857545801904
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 100.14963179198094
+      },
+      {
+        "steps": 2,
+        "solved": true,
+        "seconds": 40.01462475000881
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 160.23396054201294
+      },
+      {
+        "steps": 2,
+        "solved": true,
+        "seconds": 40.015302791958675
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 180.434285833966
+      },
+      {
+        "steps": 11,
+        "solved": true,
+        "seconds": 220.64601629204117
+      },
+      {
+        "steps": 10,
+        "solved": true,
+        "seconds": 200.33191441604868
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 100.12879408302251
+      },
+      {
+        "steps": 2,
+        "solved": true,
+        "seconds": 40.0366582920542
+      },
+      {
+        "steps": 4,
+        "solved": true,
+        "seconds": 80.10228079103399
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 160.2566283340566
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 100.18588200001977
+      },
+      {
+        "steps": 2,
+        "solved": true,
+        "seconds": 40.01514745794702
+      },
+      {
+        "steps": 12,
+        "solved": true,
+        "seconds": 240.6065948329633
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 140.26709145796485
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 160.28823837498203
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 100.1471039999742
+      },
+      {
+        "steps": 2,
+        "solved": true,
+        "seconds": 40.01462962501682
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 180.35815079091117
+      },
+      {
+        "steps": 10,
+        "solved": true,
+        "seconds": 200.3732811670052
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 100.15475387510378
+      }
+    ]
+  },
+  {
+    "scenario": "multi",
+    "budget": 1.0,
+    "obs_mode": "egocentric",
+    "mean_steps": 26.5,
+    "std_steps": 46.92103295253988,
+    "solve_rate": 0.9333333333333333,
+    "n_runs": 30,
+    "runs": [
+      {
+        "steps": 14,
+        "solved": true,
+        "seconds": 14.350343500031158
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 8.224735583062284
+      },
+      {
+        "steps": 26,
+        "solved": true,
+        "seconds": 26.636858624988236
+      },
+      {
+        "steps": 4,
+        "solved": true,
+        "seconds": 4.032934416085482
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 9.158972374978475
+      },
+      {
+        "steps": 19,
+        "solved": true,
+        "seconds": 19.475732499966398
+      },
+      {
+        "steps": 18,
+        "solved": true,
+        "seconds": 18.204558999976143
+      },
+      {
+        "steps": 21,
+        "solved": true,
+        "seconds": 22.091363666928373
+      },
+      {
+        "steps": 6,
+        "solved": true,
+        "seconds": 6.146138166077435
+      },
+      {
+        "steps": 22,
+        "solved": true,
+        "seconds": 22.436180374934338
+      },
+      {
+        "steps": 10,
+        "solved": true,
+        "seconds": 10.200174917001277
+      },
+      {
+        "steps": 11,
+        "solved": true,
+        "seconds": 11.529580165981315
+      },
+      {
+        "steps": 16,
+        "solved": true,
+        "seconds": 16.707930834032595
+      },
+      {
+        "steps": 16,
+        "solved": true,
+        "seconds": 16.171660082996823
+      },
+      {
+        "steps": 200,
+        "solved": false,
+        "seconds": 266.37617716705427
+      },
+      {
+        "steps": 12,
+        "solved": true,
+        "seconds": 12.405738541972823
+      },
+      {
+        "steps": 6,
+        "solved": true,
+        "seconds": 6.099111124989577
+      },
+      {
+        "steps": 200,
+        "solved": false,
+        "seconds": 265.7611559579382
+      },
+      {
+        "steps": 4,
+        "solved": true,
+        "seconds": 4.042644457891583
+      },
+      {
+        "steps": 11,
+        "solved": true,
+        "seconds": 11.284880083985627
+      },
+      {
+        "steps": 4,
+        "solved": true,
+        "seconds": 4.038044374901801
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 9.088607917074114
+      },
+      {
+        "steps": 23,
+        "solved": true,
+        "seconds": 24.262598957982846
+      },
+      {
+        "steps": 29,
+        "solved": true,
+        "seconds": 29.750980584067293
+      },
+      {
+        "steps": 20,
+        "solved": true,
+        "seconds": 20.39811191696208
+      },
+      {
+        "steps": 11,
+        "solved": true,
+        "seconds": 11.182004334055819
+      },
+      {
+        "steps": 22,
+        "solved": true,
+        "seconds": 22.657999249990098
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 9.286811499972828
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 7.6187396249733865
+      },
+      {
+        "steps": 28,
+        "solved": true,
+        "seconds": 28.998423124896362
+      }
+    ]
+  },
+  {
+    "scenario": "multi",
+    "budget": 20.0,
+    "obs_mode": "egocentric",
+    "mean_steps": 15.7,
+    "std_steps": 34.45010885323877,
+    "solve_rate": 0.9666666666666667,
+    "n_runs": 30,
+    "runs": [
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 180.64963354205247
+      },
+      {
+        "steps": 11,
+        "solved": true,
+        "seconds": 220.94240108295344
+      },
+      {
+        "steps": 6,
+        "solved": true,
+        "seconds": 120.4551499170484
+      },
+      {
+        "steps": 4,
+        "solved": true,
+        "seconds": 80.20932341692969
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 100.25081937504001
+      },
+      {
+        "steps": 200,
+        "solved": false,
+        "seconds": 4082.5053127920255
+      },
+      {
+        "steps": 10,
+        "solved": true,
+        "seconds": 200.5981266250601
+      },
+      {
+        "steps": 22,
+        "solved": true,
+        "seconds": 442.9379375829594
+      },
+      {
+        "steps": 6,
+        "solved": true,
+        "seconds": 120.4587410830427
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 180.66352399997413
+      },
+      {
+        "steps": 10,
+        "solved": true,
+        "seconds": 200.7840333749773
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 140.6895357919857
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 140.5091349160066
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 160.5566589999944
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 181.1941617920529
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 140.7379668749636
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 100.3794107499998
+      },
+      {
+        "steps": 10,
+        "solved": true,
+        "seconds": 200.94482329208404
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 100.27854462503456
+      },
+      {
+        "steps": 11,
+        "solved": true,
+        "seconds": 221.43618837499525
+      },
+      {
+        "steps": 4,
+        "solved": true,
+        "seconds": 80.20236416603439
+      },
+      {
+        "steps": 11,
+        "solved": true,
+        "seconds": 220.83467279095203
+      },
+      {
+        "steps": 19,
+        "solved": true,
+        "seconds": 381.92646983393934
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 180.47414433397353
+      },
+      {
+        "steps": 15,
+        "solved": true,
+        "seconds": 301.2257007920416
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 180.6990644170437
+      },
+      {
+        "steps": 13,
+        "solved": true,
+        "seconds": 261.57497120904736
+      },
+      {
+        "steps": 9,
+        "solved": true,
+        "seconds": 180.80263487494085
+      },
+      {
+        "steps": 10,
+        "solved": true,
+        "seconds": 201.2146880000364
+      },
+      {
+        "steps": 11,
+        "solved": true,
+        "seconds": 220.74991962499917
+      }
+    ]
+  }
+]

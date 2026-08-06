@@ -114,8 +114,21 @@ is part of why Alternative B is the default.)
 
 * `solved=True` on (nearly) all runs — a `solved=False` line means the
   episode hit the 200-step cap and is counted at 200 steps.
-* `pf_accepted` close to N and `reinvig=0` in the DEBUG log — persistent
-  reinvigoration would suggest raising `--particles`.
+
+Per-step particle-filter diagnostics are **not** emitted by default. They
+require `--verbose`, and because pool workers do not inherit the parent's
+logging configuration they only reach the log file under `--jobs 1`:
+
+```bash
+.venv/bin/python exercises/ex4/solution_ex4.py --scenarios single multi \
+    --budgets 1 --runs 8 --jobs 1 --verbose --out exercises/ex4/pf_diagnostics
+```
+
+Then check the DEBUG lines for `pf_accepted` close to N and `reinvig=0` —
+persistent reinvigoration, or `attempts` approaching the 100·N cap, would
+suggest raising `--particles`. Our measured baseline (178 belief updates):
+accepted 500/500 every time, reinvigoration 0, acceptance rate 19.1% mean
+but only 1.0% at the worst step. See `report.md` §5.
 
 ## 6. Optional POMCP enhancements (`pomcp.py`, `solution_ex4.py`)
 
@@ -145,5 +158,18 @@ prefix so the baseline files are untouched):
 .venv/bin/python exercises/ex4/solution_ex4.py --budgets 1 20 --runs 30 --jobs 4 --improved --out exercises/ex4/sweep_improved
 ```
 
-Measured effect (two-robot map, `multi 1s`, same seeds): mean steps
-33.2 → 17.8, std 51.4 → 8.0, solve rate 92% → 100%.
+Measured effect over the full 30-run sweep (baseline and improved run
+back-to-back on the same machine with the same seeds and `--jobs 4`):
+
+| Scenario | Budget | Baseline | Improved |
+|---|---|---|---|
+| single | 1 s | 6.83 / std 3.75 / 100% | 6.70 / std 3.29 / 100% |
+| single | 20 s | 6.63 / std 3.04 / 100% | 6.63 / std 3.19 / 100% |
+| multi | 1 s | 26.50 / std 46.92 / 93% | **13.83 / std 8.20 / 100%** |
+| multi | 20 s | 15.70 / std 34.45 / 97% | 15.63 / std 34.37 / 97% |
+
+The large `multi 1s` gain is a **reliability** effect, not a speedup: on
+solved runs alone the two planners are indistinguishable (14.11 vs 13.83
+steps). The baseline truncated twice at 1 s (worst run 200 steps), the
+improved planner zero times (worst run 46) — dropping those two 200-step
+entries is what halves the mean. See `report.md` §8.

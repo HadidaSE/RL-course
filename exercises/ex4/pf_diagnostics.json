@@ -1,0 +1,104 @@
+[
+  {
+    "scenario": "single",
+    "budget": 1.0,
+    "obs_mode": "egocentric",
+    "mean_steps": 7.25,
+    "std_steps": 2.7271780286589284,
+    "solve_rate": 1.0,
+    "n_runs": 8,
+    "runs": [
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 5.024319209042005
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 7.060406500007957
+      },
+      {
+        "steps": 6,
+        "solved": true,
+        "seconds": 6.0567692500771955
+      },
+      {
+        "steps": 4,
+        "solved": true,
+        "seconds": 4.019462459022179
+      },
+      {
+        "steps": 5,
+        "solved": true,
+        "seconds": 5.024151333025657
+      },
+      {
+        "steps": 11,
+        "solved": true,
+        "seconds": 11.071477290941402
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 8.061966083012521
+      },
+      {
+        "steps": 12,
+        "solved": true,
+        "seconds": 12.161075209034607
+      }
+    ]
+  },
+  {
+    "scenario": "multi",
+    "budget": 1.0,
+    "obs_mode": "egocentric",
+    "mean_steps": 15.0,
+    "std_steps": 10.41633332799983,
+    "solve_rate": 1.0,
+    "n_runs": 8,
+    "runs": [
+      {
+        "steps": 13,
+        "solved": true,
+        "seconds": 13.431729624979198
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 8.151913165929727
+      },
+      {
+        "steps": 33,
+        "solved": true,
+        "seconds": 33.77998283295892
+      },
+      {
+        "steps": 4,
+        "solved": true,
+        "seconds": 4.033635542029515
+      },
+      {
+        "steps": 7,
+        "solved": true,
+        "seconds": 7.107098457985558
+      },
+      {
+        "steps": 16,
+        "solved": true,
+        "seconds": 16.50809533300344
+      },
+      {
+        "steps": 8,
+        "solved": true,
+        "seconds": 8.111440291046165
+      },
+      {
+        "steps": 31,
+        "solved": true,
+        "seconds": 32.14358958392404
+      }
+    ]
+  }
+]

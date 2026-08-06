@@ -21,8 +21,13 @@ the observation function are implemented from scratch.
 Reproduce with:
 
 ```bash
-python3 exercises/ex4/solution_ex4.py --budgets 1 20 --runs 30 --jobs 4
-python3 exercises/ex4/test_ex4.py            # sanity tests
+# baseline sweep (§7)
+python3 exercises/ex4/solution_ex4.py --budgets 1 20 --runs 30 --jobs 4 \
+    --out exercises/ex4/sweep_baseline
+# optional enhancements (§8)
+python3 exercises/ex4/solution_ex4.py --budgets 1 20 --runs 30 --jobs 4 --improved \
+    --out exercises/ex4/sweep_improved
+python3 exercises/ex4/test_ex4.py            # sanity tests (7 tests)
 ```
 
 ## 2. Choice of Observation Alternative — B (egocentric)
@@ -134,7 +139,7 @@ around `s'`.
 |---|---|---|
 | `time_budget_short` / `time_budget_long` | 1 s / 20 s | enforced wall-clock, per decision |
 | `n_runs` | 30 | per (scenario, budget) pair |
-| `particles_n` | 500 | no depletion-driven failures observed; reinvigoration triggers only rarely (deterministic observations) |
+| `particles_n` | 500 | measured sufficient — rejection sampling refilled all 500 particles at every one of 178 logged belief updates, and reinvigoration never fired (see below) |
 | `depth_max` (search/rollout horizon) | 60 | γ=0.99: γ⁶⁰ ≈ 0.547, so a 60-step horizon does *not* fully discount deep reward — still ≈3–5× the typical solve length, which matters more than the discount tail at this γ |
 | `c` (UCB1 exploration) | 1.0 | recommended starting value; Q ∈ [0, 1] here so c = 1 explores adequately |
 | `gamma` | 0.99 | **Deviation (reported):** the code defaults to 0.95 (matching previous assignments), but the reported experiments were run with `--gamma 0.99` for a longer effective planning horizon, appropriate given multi-agent episodes can need 15–30+ steps |
@@ -142,6 +147,40 @@ around `s'`.
 | Rollout policy ε | 0.2 | greedy-with-noise heuristic (see §3) |
 | `max_steps` (truncation) | 200 | truncated episodes count as 200 steps and as failures |
 | Rejection-sampling cap | 100·N attempts | then map-based reinvigoration |
+
+**Justification of `particles_n = 500` (measured).** We instrumented the
+belief update (`--verbose --jobs 1`) over 16 episodes on both maps — 178
+belief updates in total:
+
+| Quantity | Result |
+|---|---|
+| Particles accepted per update | **500 / 500 at every single update** (min = max = 500) |
+| Rejection-sampling acceptance rate | 19.1% mean; 1.0% at the worst individual step |
+| Attempts used per update | 2,621 mean, 48,804 worst, against the 50,000 cap |
+| Updates requiring reinvigoration | **0 / 178** |
+
+So N = 500 is sufficient: the unweighted rejection-sampling update of Silver
+& Veness never failed to refill the filter, and the map-based reinvigoration
+fallback — although implemented and unit-tested
+(`test_particle_filter_survives_depletion`) — was never needed on these maps.
+
+The margin is thinner than the headline suggests, though. The worst observed
+step consumed 48,804 of its 50,000 permitted attempts (97.6%), i.e. a 1.0%
+acceptance rate. This is the expected consequence of a *deterministic*
+observation function: immediately after a step whose real observation was
+unlikely under the current belief, almost every sampled particle is rejected.
+Halving N would not help — the cap scales with N — but a substantially harder
+map, or an observation window carrying more information, could push a step
+past the cap and into reinvigoration. That is precisely why the fallback
+exists rather than being left as an unhandled edge case.
+
+Reproduce: `python3 exercises/ex4/solution_ex4.py --scenarios single multi
+--budgets 1 --runs 8 --jobs 1 --verbose --out exercises/ex4/pf_diagnostics`
+(raw log: `pf_diagnostics.log`).
+
+For scale, the same log records POMCP simulation counts per decision at the
+1 s budget: **10,575 mean** (min 1,373, max 122,499) — confirming the budget
+is spent on genuine search rather than on the belief update.
 
 ## 6. Environment Bug Found and Fixed
 
@@ -179,71 +218,146 @@ all goals are covered; truncated episodes (cap 200) count at the cap.
 
 | Scenario | Budget | Mean steps | Std steps | Solve rate |
 |---|---|---|---|---|
-| single (1 robot) | 1 s | 6.83 | 3.60 | 100% (30/30) |
-| single (1 robot) | 20 s | 6.57 | 3.00 | 100% (30/30) |
-| multi (2 robots) | 1 s | 19.87 | 34.23 | 97% (29/30) |
-| multi (2 robots) | 20 s | 15.27 | 34.45 | 97% (29/30) |
+| single (1 robot) | 1 s | 6.83 | 3.75 | 100% (30/30) |
+| single (1 robot) | 20 s | 6.63 | 3.04 | 100% (30/30) |
+| multi (2 robots) | 1 s | 26.50 | 46.92 | 93% (28/30) |
+| multi (2 robots) | 20 s | 15.70 | 34.45 | 97% (29/30) |
 
 Run with: `python3 exercises/ex4/solution_ex4.py --budgets 1 20 --runs 30 --jobs 4`
 (base seed 0, `gamma=0.99`, `--particles 500`, `--c 1.0`, `--depth 60`).
-The large std for `multi` is driven almost entirely by one truncated
-(200-step) run per budget — see discussion below.
 
-(Raw per-run data: `results.json`; full log: `results.log`.)
+Because truncated runs enter the mean at the 200-step cap, a single
+truncation shifts a 30-run cell's mean by ≈6 steps and inflates its std
+enormously. The `multi` std values above are therefore almost entirely a
+truncation artefact, not a spread over typical episodes. The **solved-only**
+statistics describe the typical run:
 
-## 8. Discussion
+| Scenario | Budget | Mean steps (solved runs only) | Std | n |
+|---|---|---|---|---|
+| single | 1 s | 6.83 | 3.75 | 30 |
+| single | 20 s | 6.63 | 3.04 | 30 |
+| multi | 1 s | 14.11 | 7.42 | 28 |
+| multi | 20 s | 9.34 | 4.01 | 29 |
+
+**Reproducibility note.** An earlier execution of this identical command
+(2026-07-10) gave 6.83 / 6.57 / 19.87 / 15.27. The three stable cells
+reproduce to within ±0.1 steps; `multi | 1 s` moved from 19.87 to 26.50
+purely because that run truncated once and this one truncated twice. Even
+with fixed seeds the results are not bit-reproducible: the number of POMCP
+simulations that fit inside a wall-clock budget depends on machine load, so
+seeds fix the *environment* noise but not the *search* effort. Cells whose
+mean is dominated by rare truncations are consequently the least stable, a
+point the enhancement comparison in §8 addresses directly.
+
+(Raw per-run data: `sweep_baseline.json`; full log: `sweep_baseline.log`.
+The 2026-07-10 execution is retained as `results.json` / `results.log`.)
+
+## 8. Optional POMCP Enhancements
+
+Three optional improvements were added on top of the baseline POMCP. They are
+**off by default** so the §7 numbers stay reproducible; `--improved` enables
+all three. All are assignment-compliant: no external POMDP/planning/RL
+library, no change to the reward/termination/`gamma` definition, and they
+never read the agent's true hidden location — they operate only on states
+sampled from the belief and on the known map.
+
+| Flag | What it changes |
+|---|---|
+| `--reuse-tree` | The search tree is retained between decisions and pruned to the `T(hao)` subtree after each real action/observation, instead of being rebuilt from scratch every step (canonical Silver & Veness 2010 POMCP). |
+| `--smart-rollout` | The heuristic rollout greedily matches each agent to a **distinct** unfinished box, so two robots stop chasing the same one. |
+| `--preferred-actions` | On node expansion the rollout policy's greedy joint action is tried first among untried actions, warm-starting the 16-arm joint search. |
+
+Measured with the same seeds, machine and `--jobs 4` as §7, run back-to-back
+with the baseline sweep:
+
+| Scenario | Budget | Baseline mean / std / solve | Improved mean / std / solve |
+|---|---|---|---|
+| single | 1 s | 6.83 / 3.75 / 100% | 6.70 / 3.29 / 100% |
+| single | 20 s | 6.63 / 3.04 / 100% | 6.63 / 3.19 / 100% |
+| multi | 1 s | 26.50 / 46.92 / 93% | **13.83 / 8.20 / 100%** |
+| multi | 20 s | 15.70 / 34.45 / 97% | 15.63 / 34.37 / 97% |
+
+**What actually improved.** The headline `multi | 1 s` drop (26.50 → 13.83)
+is a *reliability* gain, not a speedup. Restricted to solved runs the two
+planners are indistinguishable — 14.11 (n=28) vs 13.83 (n=30) at 1 s, and
+9.34 vs 9.28 (both n=29) at 20 s. What changed is the tail: the baseline
+truncated twice at 1 s with a worst run of 200 steps, the improved planner
+truncated **zero** times with a worst run of 46. Removing two 200-step
+entries is what halves the mean and collapses the std from 46.92 to 8.20.
+
+This is the expected shape of the effect. All three enhancements make each
+second of search go further — reused statistics, less duplicated effort
+between the two robots, a sensible first action at every new node — which
+matters only when compute is the binding constraint. At 1 s on the joint
+(16-arm) two-robot problem it is, so the runs that would otherwise flounder
+into the cap now finish. At 20 s the baseline search is already good enough
+that the extra efficiency buys nothing measurable (15.70 → 15.63, both with
+one truncation), and on the single-robot map neither budget was ever
+compute-starved, so both planners sit at ≈6.7 steps.
+
+Raw data: `sweep_improved.json` / `sweep_improved.log`. Reproduce with:
+
+```bash
+python3 exercises/ex4/solution_ex4.py --budgets 1 20 --runs 30 --jobs 4 --improved --out exercises/ex4/sweep_improved
+```
+
+## 9. Discussion
 
 **Effect of the decision-time budget (1 s vs 20 s).** For the single-robot
-scenario the budget barely matters (mean 6.83 → 6.57 steps, std 3.60 → 3.00):
-the map is small enough that even 1 second of POMCP search already finds a
-near-optimal policy, so the extra 19 seconds mostly buys marginally lower
-variance rather than materially fewer steps. For the two-robot scenario the
-effect is more visible on the *typical* run — mean steps drop noticeably
-(19.87 → 15.27) with the larger budget, since coordinating two agents under
-independent location uncertainty gives POMCP a much larger joint
-action/observation space (4² = 16 root actions, and joint belief particles)
-to search, so more simulations per decision translate into materially better
-joint pushes and less wasted maneuvering. What the extra budget does *not*
-fix is the tail: one run per budget hit the 200-step truncation cap
-regardless of how much time was allowed per decision — see below.
+scenario the budget barely matters (6.83 → 6.63 steps): the map is small
+enough that even 1 second of POMCP search already finds a near-optimal
+policy, so the extra 19 seconds change nothing measurable.
+
+For the two-robot scenario the budget matters a great deal, but the raw
+means hide it — 26.50 → 15.70 looks like a large gain and is partly a
+truncation artefact. The **solved-only** means isolate the real effect:
+**14.11 → 9.34 steps**, a ~34% reduction on typical episodes, with std
+falling 7.42 → 4.01. This is the genuine budget effect, and it is much
+cleaner than the raw table suggests. It is also exactly where more search
+*should* pay: coordinating two agents under independent location uncertainty
+gives POMCP a 4² = 16-arm joint action space over joint belief particles, so
+additional simulations per decision translate directly into better joint
+pushes and less wasted maneuvering.
+
+The budget also reduces, but does not eliminate, the truncation tail: 2/30
+truncations at 1 s versus 1/30 at 20 s.
 
 **Effect of the multi-agent scenario.** Two robots consistently need more
-steps than one (mean ≈ 15–20 vs ≈ 7) and show far higher variance (std ≈ 34
-vs ≈ 3). Two things compound: (1) each robot must localize its *own* hidden
-position independently before the joint belief is sharp enough to coordinate
-efficient pushes, roughly doubling the "figuring out where I am" overhead
-before productive pushing starts; and (2) the belief and search space both
-grow multiplicatively with the number of agents (joint particles, joint
-actions), so the same particle/time budget covers proportionally less of the
+steps than one — ≈9–14 versus ≈6.7 on solved runs — and are far more prone
+to the occasional catastrophic episode (all three truncations across the
+whole sweep are `multi` runs; `single` never truncated in 60 episodes). Two
+things compound: (1) each robot must localize its *own* hidden position
+before the joint belief is sharp enough to coordinate efficient pushes,
+roughly doubling the "figuring out where I am" overhead before productive
+pushing starts; and (2) the belief and search space both grow
+multiplicatively with the number of agents (joint particles, joint actions),
+so the same particle and time budget covers proportionally less of the
 outcome space per agent than in the single-robot case.
 
-**The two truncated runs.** In both `multi` cells exactly one run (out of
-30) hit the 200-step cap rather than solving — run 8/30 at 1 s, and run 6/30
-at 20 s. Run 6/30 at 20 s is notable: it is the *exact seed* we used to
-diagnose the environment collision bug in §6 (that bug is what caused the
-original ~66-minute stall). After the fix, we verified offline with a
-dedicated, uncontended process that this same seed *is* solvable — POMCP
-solved it cleanly in 12 decisions (~4 minutes). In the actual 30-run sweep,
-however, this episode ran with 4 worker processes sharing the machine's
-cores (`--jobs 4`), so each worker's 20-second budget bought noticeably
-fewer POMCP simulations than our dedicated single-process check got in the
-same wall-clock time — weaker per-decision search quality pushed this
-specific run past the 200-step cap live, even though the underlying scenario
-is solvable in principle. This is a real, if secondary, effect of `--jobs`:
-raising parallelism trades some per-decision search quality (and thus
-occasional truncated runs) for total sweep wall-clock time. Beyond that
-contention effect, with only 20% push failure and 20% move-deviation
-probability compounding over many decisions, an unlucky sequence of failed
-pushes or a slow-to-collapse belief can push an episode past 200 steps even
-under full compute. A larger `--max-steps`, `--jobs 1`, more particles, or a
-stronger rollout heuristic would likely reduce (but not necessarily
-eliminate) this tail; we left the recommended defaults and `--jobs 4` in
-place for a practical sweep runtime rather than re-tuning against two
-observed outliers.
+**The truncated runs.** Three episodes out of 120 hit the 200-step cap,
+all in `multi`: two at 1 s and one at 20 s. Two mechanisms produce them.
+First, contention: the sweep runs 4 worker processes (`--jobs 4`), so each
+worker's wall-clock budget buys noticeably fewer POMCP simulations than a
+dedicated process would. We confirmed this concretely — the seed that
+truncated in an earlier 20 s sweep was re-run in a single uncontended
+process and solved cleanly in 12 decisions. Raising `--jobs` therefore
+trades per-decision search quality for total sweep runtime. Second, plain
+bad luck: with 20% push failure and 20% move deviation compounding over many
+decisions, an unlucky sequence or a slow-to-collapse belief can exhaust 200
+steps even under full compute.
+
+Notably, the enhancements of §8 address the *first* mechanism and not the
+second — they eliminated both 1 s truncations (where search effort was the
+binding constraint) while leaving the 20 s truncation in place (where it was
+not). A larger `--max-steps`, `--jobs 1`, or more particles would further
+shrink this tail without removing it.
 
 **Takeaway.** More compute per decision helps most when the search space is
-large (multi-agent) and helps little when it is already small enough to
-solve near-optimally within 1 second (single-agent). Neither budget rescues
-a run from a genuinely unlucky stochastic trajectory — that risk is a
+large (multi-agent, 14.11 → 9.34 steps) and essentially not at all when it
+is already small enough to solve near-optimally within 1 second
+(single-agent, 6.83 → 6.63). The same principle explains §8: making each
+second of search go further reproduces the benefit of a larger budget
+exactly where compute was scarce, and nowhere else. What no time budget
+rescues is a genuinely unlucky stochastic trajectory — that risk is a
 property of the domain (sparse terminal reward, no-pull box mechanics, push
-failure probability) more than of the planner's time budget.
+failure probability) rather than of the planner.

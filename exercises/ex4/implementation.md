@@ -79,7 +79,10 @@ therefore equals exactly one environment step and one POMDP transition.
    that.
 
 Reward is sparse and identical to previous assignments: 1.0 exactly when all
-goal cells are covered by boxes (terminal), else 0. γ = 0.95.
+goal cells are covered by boxes (terminal), else 0. The code's γ default is
+0.95 (matching previous assignments), but the CLI default — and every
+reported experiment — uses **γ = 0.99** for a longer effective planning
+horizon; see `report.md` §5, where the deviation is declared.
 
 **Observation function — both alternatives implemented** (`window` /
 `observe`, placement selected by `obs_mode` via the shared `OBS_OFFSETS`
@@ -147,6 +150,12 @@ in the original POMCP paper.
   that set. Co-located agents are allowed (needed for heavy-box pushes).
   Two further fallbacks (duplicate survivors → uniform re-init) make the
   filter impossible to empty.
+* **Measured behaviour**: instrumented over 178 belief updates
+  (`--verbose --jobs 1`), rejection sampling refilled all 500 particles
+  every single time and reinvigoration never fired — mean acceptance rate
+  19.1%, but only 1.0% at the worst step (48,804 of 50,000 permitted
+  attempts). The fallback is therefore unexercised in practice yet not
+  redundant; see `report.md` §5.
 
 ## 6. `pomcp.py` — the planner
 
@@ -214,10 +223,11 @@ lottery rather than planning quality; reported as a deviation).
 | `test_observation_function_matches_under_stochastic_dynamics` | Under normal stochastic dynamics, the wrapper's real-grid window always equals the model's window for the true state. |
 | `test_particle_filter_tracks_true_state` | Along a random-action episode, the true hidden state stays inside the 300-particle belief in >90 % of steps. |
 | `test_particle_filter_survives_depletion` | An impossible observation triggers reinvigoration and still yields N particles. |
+| `test_north_window_semantics` | Alternative A's window really sits immediately north of the agent (bottom row = the row above it, columns x−1..x+1) and reads off-board cells as WALL. |
 | `test_pomcp_budget_is_enforced` | `plan()` with a 0.5 s budget returns within tolerance and completes >100 simulations. |
 | `test_online_loop_solves_single_scenario` | A full episode with a 0.3 s budget actually solves the single-robot map. |
 
-All six pass; a `--quick` smoke run solves both default scenarios with 100 %
+All seven pass; a `--quick` smoke run solves both default scenarios with 100 %
 success even at a 0.1 s budget.
 
 ## 9. Design decisions at a glance
@@ -229,7 +239,7 @@ success even at a 0.1 s budget.
 | Belief | 500 unweighted particles, full states | original POMCP representation; boxes inside particles because push outcomes depend on hidden location |
 | Belief update | rejection sampling + map-based reinvigoration | assignment-mandated; deterministic obs ⇒ depletion must be handled |
 | Rollouts | greedy-with-noise heuristic (ε = 0.2) | sparse reward starves random rollouts at 1 s budgets |
-| Horizon | 60 (γ = 0.95) | γ⁶⁰ ≈ 0.046 ⇒ deeper reward negligible; ≈3× typical solve length |
+| Horizon | 60 | ≈3–5× the typical solve length. At the code default γ = 0.95, γ⁶⁰ ≈ 0.046 so deeper reward is negligible; at the reported γ = 0.99, γ⁶⁰ ≈ 0.547, so the horizon is set by solve length rather than by the discount tail |
 | UCB c | 1.0 | recommended start; Q ∈ [0,1] here so c = 1 explores adequately |
 | Tree | fresh per decision | simple and correct; belief carried between steps by the particle filter |
 | Starts | randomized uniformly per reset | the true initial state should be a sample from b₀ |
@@ -277,13 +287,42 @@ infrastructure (`environment/stochastic_env.py`) also used by Assignment 2,
 so any 2+-agent stochastic scenario there could hit it too, just less
 consequentially (shorter episodes, no 20 s-per-decision multiplier).
 
-## 11. What is intentionally NOT here
+## 11. Optional planner enhancements (off by default)
+
+Three improvements sit on top of the baseline POMCP, each behind its own
+flag (`--improved` turns on all three). They are **disabled by default** so
+the baseline results stay reproducible.
+
+| Flag | Change | Where |
+|------|--------|-------|
+| `--reuse-tree` | The tree is retained between decisions and pruned to the `T(hao)` subtree after each real action/observation, rather than rebuilt every step — the canonical Silver & Veness (2010) formulation. | `POMCPPlanner.plan` (reuses `self._root`), plus `reset()` / `advance()`; the online loop calls `planner.reset()` at episode start and `planner.advance(a, o)` after each belief update. |
+| `--smart-rollout` | The rollout greedily matches each agent to a **distinct** unfinished box, so two robots stop chasing the same one. Matching is hand-rolled (no `scipy`). | `HeuristicRolloutPolicy.assign_tasks` / `_assign()`; `_best_direction()` takes an optional `assigned_box`. |
+| `--preferred-actions` | On node expansion the rollout policy's greedy joint action is marked preferred and tried first among untried actions, warm-starting the 16-arm joint search. | `_Node.preferred`, `POMCPPlanner._preferred()`, preferred-first branch in `_ucb_select`. |
+
+All three are assignment-compliant: no external POMDP/planning/RL library,
+no change to the reward/termination/`gamma` definition, and no access to the
+agent's true location — they read only belief-sampled states and the known
+map.
+
+**Measured effect** (full 30-run sweep, baseline and improved run
+back-to-back, same machine/seeds/`--jobs 4`): the only cell that moves is
+`multi | 1 s`, 26.50 → 13.83 mean steps, std 46.92 → 8.20, solve rate
+93% → 100%. That is a *reliability* gain, not a speedup — on solved runs
+alone the planners are indistinguishable (14.11 vs 13.83). The baseline
+truncated twice at 1 s (worst run 200 steps), the improved planner zero
+times (worst run 46). All three enhancements make each second of search go
+further, which matters only where compute is the binding constraint: at 1 s
+on the 16-arm two-robot problem it is; at 20 s, and on the single-robot map
+at either budget, it is not. Full numbers in `report.md` §8.
+
+## 12. What is intentionally NOT here
 
 * No POMDP/planning/RL libraries — POMCP, the particle filter and the
   observation function are implemented from scratch, per the assignment.
 * No peeking: the planner and filter only ever see actions and observations;
   `true_state()` is used exclusively by tests and DEBUG logging.
-* The experiment numbers: the full 30-run × {1 s, 20 s} × {single, multi}
-  sweep was **not** executed (stopped on request). `report.md` §6–7 has the
-  table and discussion left as TBD — run the command in `instructions.md`
-  §3 and fill them in from the printed `RESULTS SUMMARY`.
+* No bit-reproducibility. Seeds fix the environment's stochastic dynamics
+  and the start location, but *not* how many POMCP simulations fit inside a
+  wall-clock budget — that depends on machine load. Cells whose mean is
+  dominated by rare truncations (notably `multi | 1 s`) therefore vary
+  between executions of the same command; see `report.md` §7.
