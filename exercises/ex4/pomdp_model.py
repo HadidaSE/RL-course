@@ -45,19 +45,13 @@ FREE, WALL, BOX = 0, 1, 2
 # Compass directions, indexed like MiniGrid's DIR_TO_VEC:
 # 0 = right, 1 = down, 2 = left, 3 = up.
 DIR_VECS: Tuple[Cell, ...] = ((1, 0), (0, 1), (-1, 0), (0, -1))
-DIR_NAMES: Tuple[str, ...] = ("right", "down", "left", "up")
 
-# The two observation alternatives of the assignment, expressed as the
-# (dx, dy) offsets of the 3x3 window relative to the agent's true location,
-# in row-major order (northernmost row first):
-#   * "egocentric" (Alternative B) — the agent sits in the centre cell;
-#   * "north" (Alternative A) — the window lies immediately to the north of
-#     the agent (its bottom row is the row directly above the agent),
-#     regardless of any facing direction.
-OBS_OFFSETS: dict = {
-    "egocentric": tuple((dx, dy) for dy in (-1, 0, 1) for dx in (-1, 0, 1)),
-    "north": tuple((dx, dy) for dy in (-3, -2, -1) for dx in (-1, 0, 1)),
-}
+# Alternative B (egocentric): (dx, dy) offsets of the 3x3 observation window
+# relative to the agent's true location, row-major (northernmost row first),
+# with the agent in the centre cell.
+OBS_OFFSETS: Tuple[Cell, ...] = tuple(
+    (dx, dy) for dy in (-1, 0, 1) for dx in (-1, 0, 1)
+)
 
 
 class State(NamedTuple):
@@ -88,7 +82,6 @@ class BoxPushModel:
         ascii_map: Sequence[str],
         move_success_prob: float = 0.8,
         push_success_prob: float = 0.8,
-        obs_mode: str = "egocentric",
     ) -> None:
         """Parses the ASCII map and precomputes static layout information.
 
@@ -98,20 +91,11 @@ class BoxPushModel:
             move_success_prob: Probability a move goes in the intended
                 direction (the remainder is split between the two sides).
             push_success_prob: Probability a push succeeds.
-            obs_mode: Observation alternative — "egocentric" (Alternative B,
-                agent-centred window) or "north" (Alternative A, window
-                immediately north of the agent).
         """
-        if obs_mode not in OBS_OFFSETS:
-            raise ValueError(f"unknown obs_mode {obs_mode!r}; "
-                             f"expected one of {sorted(OBS_OFFSETS)}")
-        self.ascii_map = list(ascii_map)
         self.width = len(ascii_map[0])
         self.height = len(ascii_map)
         self.move_success_prob = move_success_prob
         self.push_success_prob = push_success_prob
-        self.obs_mode = obs_mode
-        self.obs_offsets = OBS_OFFSETS[obs_mode]
 
         self.walls: frozenset = frozenset()
         self.goals: frozenset = frozenset()
@@ -164,16 +148,11 @@ class BoxPushModel:
         return bool(self.goals) and self.goals <= boxes
 
     # ------------------------------------------------------------------
-    # Observation function (Alternative B "egocentric" / Alternative A
-    # "north", selected by ``obs_mode``)
+    # Observation function (Alternative B — egocentric)
     # ------------------------------------------------------------------
 
     def window(self, pos: Cell, boxes: frozenset) -> Window:
-        """Computes the deterministic 3x3 window for an agent at ``pos``.
-
-        The window's placement relative to the agent is given by
-        ``obs_mode``: centred on the agent (Alternative B) or immediately
-        to the north of it (Alternative A).
+        """Computes the deterministic 3x3 window centred on ``pos``.
 
         Args:
             pos: The agent's true (x, y) location.
@@ -181,12 +160,11 @@ class BoxPushModel:
 
         Returns:
             A 9-tuple in row-major order (northernmost row first); each
-            entry is FREE, WALL or BOX.  Out-of-bounds cells read as WALL
-            (relevant for the "north" mode near the top border).
+            entry is FREE, WALL or BOX.  Out-of-bounds cells read as WALL.
         """
         x0, y0 = pos
         cells = []
-        for dx, dy in self.obs_offsets:
+        for dx, dy in OBS_OFFSETS:
             x, y = x0 + dx, y0 + dy
             if not (0 <= x < self.width and 0 <= y < self.height) or (x, y) in self.walls:
                 cells.append(WALL)
@@ -257,58 +235,11 @@ class BoxPushModel:
                 consumed.update(pushers)
 
         # -- Pass 2: individual moves / small-box pushes -----------------
-        #
-        # ================================================================
-        # BUG (mirrors the one found and fixed in
-        # ``environment/stochastic_env.py`` on 2026-07-10): the ORIGINAL
-        # loop below mutates `agents`/`small` incrementally, one agent at a
-        # time, so a later agent in the loop can react to an earlier
-        # agent's move — but an EARLIER agent has no way to know where a
-        # LATER agent (or the box it pushes) will land in this same
-        # simultaneous step. Two entities could be resolved onto the same
-        # cell (e.g. one agent's own move landing exactly on a cell a
-        # different agent pushes a box to), which is physically impossible
-        # and, in the real environment, silently destroyed the box. Left
-        # unfixed here, this model would disagree with the now-fixed real
-        # environment on exactly these collision cases, breaking the
-        # generative-model / real-environment parity POMCP relies on.
-        #
-        # ORIGINAL (buggy) implementation — kept here for reference only,
-        # do not re-enable:
-        #
-        # for i, d in enumerate(actions):
-        #     if i in consumed:
-        #         continue
-        #     pos = agents[i]
-        #     vec = DIR_VECS[d]
-        #     target = (pos[0] + vec[0], pos[1] + vec[1])
-        #
-        #     if target in small:
-        #         behind = (target[0] + vec[0], target[1] + vec[1])
-        #         if self.is_open(behind, small, heavy):
-        #             if rng.random() < self.push_success_prob:
-        #                 small.remove(target)
-        #                 small.add(behind)
-        #                 agents[i] = target
-        #     elif self.is_open(target, small, heavy):
-        #         actual = self._sample_move_dir(d, rng)
-        #         avec = DIR_VECS[actual]
-        #         atarget = (pos[0] + avec[0], pos[1] + avec[1])
-        #         if self.is_open(atarget, small, heavy):
-        #             agents[i] = atarget
-        #     # else: wall or lone heavy-box push → no-op.
-        #
-        # ================================================================
-        # FIX: plan every agent's outcome against a frozen snapshot (no
-        # incremental mutation of `agents`/`small` while planning), collect
-        # every cell each plan claims (an agent's own landing cell, plus a
-        # pushed box's landing cell), and cancel any plan that claims a
-        # cell also claimed by another plan — both parties simply stay put,
-        # matching the existing "blocked → no-op" semantics. Identical
-        # logic to the real environment's fix, so model and environment
-        # agree on every collision case.
-        # ================================================================
-
+        # Every agent's outcome is planned against a frozen snapshot, so no
+        # agent reacts to another's move within the same simultaneous step.
+        # Plans that claim the same cell (an agent's landing cell or a pushed
+        # box's landing cell) cancel each other and both parties stay put,
+        # matching the real environment's "blocked → no-op" semantics.
         planned = {}  # agent index -> resolved outcome
         for i, d in enumerate(actions):
             if i in consumed:

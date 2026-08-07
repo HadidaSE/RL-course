@@ -88,7 +88,6 @@ class ExperimentConfig:
     gamma: float = 0.95
     max_steps: int = 200
     rollout_epsilon: float = 0.2
-    obs_mode: str = "egocentric"
     base_seed: int = 0
     jobs: int = 1
     verbose: bool = False
@@ -117,13 +116,12 @@ def run_episode(
         (wall-clock episode duration).
     """
     ascii_map = MAPS[scenario]
-    model = BoxPushModel(ascii_map, obs_mode=config.obs_mode) #The imagined world
+    model = BoxPushModel(ascii_map) #The imagined world
     env = BoxPushPOMDPEnv( #The real world
         ascii_map,
         max_steps=config.max_steps,
         randomize_start=True,
         seed=seed,
-        obs_mode=config.obs_mode,
     )
     planner = POMCPPlanner( #The decision maker
         model,
@@ -238,7 +236,6 @@ def run_experiment(
     return {
         "scenario": scenario,
         "budget": time_budget,
-        "obs_mode": config.obs_mode,
         "mean_steps": float(np.mean(reported)),
         "std_steps": float(np.std(reported)),
         "mean_steps_all": float(np.mean(steps)),
@@ -296,12 +293,6 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                         help="Discount factor.")
     parser.add_argument("--max-steps", type=int, default=200,
                         help="Episode truncation limit.")
-    parser.add_argument("--obs", default="egocentric",
-                        choices=["egocentric", "north"],
-                        help="Observation function: 'egocentric' = "
-                             "Alternative B (3x3 window centred on the "
-                             "agent); 'north' = Alternative A (3x3 window "
-                             "immediately north of the agent).")
     parser.add_argument("--seed", type=int, default=0, help="Base seed.")
     parser.add_argument("--jobs", type=int, default=1,
                         help="Parallel episodes (keep <= physical cores so "
@@ -350,7 +341,6 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         max_depth=args.depth,
         gamma=args.gamma,
         max_steps=args.max_steps,
-        obs_mode=args.obs,
         base_seed=args.seed,
         jobs=args.jobs,
         verbose=args.verbose,

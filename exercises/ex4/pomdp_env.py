@@ -37,7 +37,6 @@ from pomdp_model import (
     OBS_OFFSETS,
     WALL,
     Cell,
-    JointAction,
     Observation,
     State,
     Window,
@@ -53,7 +52,6 @@ class BoxPushPOMDPEnv:
         max_steps: int = 200,
         randomize_start: bool = True,
         seed: Optional[int] = None,
-        obs_mode: str = "egocentric",
     ) -> None:
         """Creates the wrapped stochastic environment.
 
@@ -65,14 +63,7 @@ class BoxPushPOMDPEnv:
                 the uniform initial belief).
             seed: Seed for the start-location sampler and the env's
                 stochastic dynamics.
-            obs_mode: Observation alternative — "egocentric" (Alternative B,
-                agent-centred 3x3 window) or "north" (Alternative A, 3x3
-                window immediately north of the agent).
         """
-        if obs_mode not in OBS_OFFSETS:
-            raise ValueError(f"unknown obs_mode {obs_mode!r}; "
-                             f"expected one of {sorted(OBS_OFFSETS)}")
-        self.obs_offsets = OBS_OFFSETS[obs_mode]
         self.env = StochasticMultiAgentBoxPushEnv(
             ascii_map=list(ascii_map), max_steps=max_steps
         )
@@ -146,13 +137,11 @@ class BoxPushPOMDPEnv:
     # ------------------------------------------------------------------
 
     def _observation(self) -> Observation:
-        """Slices one 3x3 window per agent from the true grid.
+        """Slices one agent-centred 3x3 window per agent from the true grid.
 
-        The window's placement (agent-centred / north of the agent) follows
-        the configured ``obs_mode``.  Goal cells and agents read as FREE so
-        the window depends only on the agent's own hidden location and the
-        (known-dynamics) box layout — a deterministic observation function,
-        as required.
+        Goal cells and agents read as FREE so the window depends only on the
+        agent's own hidden location and the (known-dynamics) box layout — a
+        deterministic observation function, as required.
         """
         return tuple(
             self._window(self.env.agent_positions[agent]) for agent in self.agents
@@ -162,7 +151,7 @@ class BoxPushPOMDPEnv:
         grid = self.env.core_env.grid
         x0, y0 = pos
         cells = []
-        for dx, dy in self.obs_offsets:
+        for dx, dy in OBS_OFFSETS:
             x, y = x0 + dx, y0 + dy
             if not (0 <= x < self.env.width and 0 <= y < self.env.height):
                 cells.append(WALL)

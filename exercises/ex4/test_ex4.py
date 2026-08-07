@@ -30,75 +30,69 @@ TEST_MAP = MAPS["single"]
 TEST_MAP_MULTI = MAPS["multi"]
 
 
-def _make_pair(ascii_map, move_p, push_p, seed=0, obs_mode="egocentric"):
+def _make_pair(ascii_map, move_p, push_p, seed=0):
     """Builds a (real env, model) pair with matching success probabilities."""
     env = BoxPushPOMDPEnv(ascii_map, max_steps=10_000, randomize_start=False,
-                          seed=seed, obs_mode=obs_mode)
+                          seed=seed)
     env.env.move_success_prob = move_p
     env.env.push_success_prob = push_p
     model = BoxPushModel(ascii_map, move_success_prob=move_p,
-                         push_success_prob=push_p, obs_mode=obs_mode)
+                         push_success_prob=push_p)
     return env, model
 
 
 def test_model_matches_env_deterministically():
     """With p=1.0 the model must reproduce the env trajectory exactly."""
-    for obs_mode in ("egocentric", "north"):
-        for ascii_map in (TEST_MAP, TEST_MAP_MULTI, MAPS["ex2"]):
-            env, model = _make_pair(ascii_map, move_p=1.0, push_p=1.0,
-                                    obs_mode=obs_mode)
-            obs, _ = env.reset()
-            state = model.initial_state(model.map_agent_starts)
-            assert env.true_state() == state
-            assert obs == model.observe(state)
+    for ascii_map in (TEST_MAP, TEST_MAP_MULTI, MAPS["ex2"]):
+        env, model = _make_pair(ascii_map, move_p=1.0, push_p=1.0)
+        obs, _ = env.reset()
+        state = model.initial_state(model.map_agent_starts)
+        assert env.true_state() == state
+        assert obs == model.observe(state)
 
-            rng = random.Random(7)
-            for _ in range(300):
-                joint = rng.choice(joint_actions(model.n_agents))
-                actions = {a: joint[i] for i, a in enumerate(env.agents)}
-                obs, _, terminated, _, _ = env.step(actions)
-                state, model_obs, _, model_done = model.step(state, joint, rng)
-                assert env.true_state() == state, f"state drift on {ascii_map}"
-                assert obs == model_obs, \
-                    f"observation drift on {ascii_map} ({obs_mode})"
-                assert terminated == model_done
-                if terminated:
-                    break
+        rng = random.Random(7)
+        for _ in range(300):
+            joint = rng.choice(joint_actions(model.n_agents))
+            actions = {a: joint[i] for i, a in enumerate(env.agents)}
+            obs, _, terminated, _, _ = env.step(actions)
+            state, model_obs, _, model_done = model.step(state, joint, rng)
+            assert env.true_state() == state, f"state drift on {ascii_map}"
+            assert obs == model_obs, f"observation drift on {ascii_map}"
+            assert terminated == model_done
+            if terminated:
+                break
 
 
 def test_observation_function_matches_under_stochastic_dynamics():
     """The wrapper's window must equal the model's for the true state."""
-    for obs_mode in ("egocentric", "north"):
-        env, model = _make_pair(TEST_MAP_MULTI, move_p=0.8, push_p=0.8,
-                                seed=3, obs_mode=obs_mode)
-        env.randomize_start = True
-        obs, _ = env.reset()
-        rng = random.Random(11)
-        for _ in range(200):
-            assert obs == model.observe(env.true_state()), obs_mode
-            joint = rng.choice(joint_actions(model.n_agents))
-            obs, _, terminated, truncated, _ = env.step(
-                {a: joint[i] for i, a in enumerate(env.agents)}
-            )
-            if terminated or truncated:
-                break
+    env, model = _make_pair(TEST_MAP_MULTI, move_p=0.8, push_p=0.8, seed=3)
+    env.randomize_start = True
+    obs, _ = env.reset()
+    rng = random.Random(11)
+    for _ in range(200):
+        assert obs == model.observe(env.true_state())
+        joint = rng.choice(joint_actions(model.n_agents))
+        obs, _, terminated, truncated, _ = env.step(
+            {a: joint[i] for i, a in enumerate(env.agents)}
+        )
+        if terminated or truncated:
+            break
 
 
-def test_north_window_semantics():
-    """Alternative A: the window must cover the 3x3 block just north of the
-    agent (bottom row adjacent), with out-of-bounds cells reading as WALL."""
-    model = BoxPushModel(TEST_MAP, obs_mode="north")
-    # Agent at (3, 4) on the 'single' map: rows 1..3 above it are inside the
-    # board; column 2 row 2 holds the box.
-    win = model.window((3, 4), frozenset({(3, 2)}))
-    #        (2,1)(3,1)(4,1)   free free free
-    #        (2,2)(3,2)(4,2) = free BOX  free
-    #        (2,3)(3,3)(4,3)   free free free
-    assert win == (0, 0, 0, 0, 2, 0, 0, 0, 0)
-    # Agent in the top playable row: the whole window is off-board / border
-    # wall and must read as WALL everywhere.
-    win_top = model.window((3, 1), frozenset())
-    assert win_top == (1,) * 9
+def test_egocentric_window_semantics():
+    """Alternative B: the window is the 3x3 block centred on the agent."""
+    model = BoxPushModel(TEST_MAP)
+    # Agent at (3, 3) on the 'single' map: the box sits at (3, 2), directly
+    # above it, so it must appear in the top-middle cell of the window.
+    win = model.window((3, 3), frozenset({(3, 2)}))
+    #        (2,2)(3,2)(4,2)   free BOX  free
+    #        (2,3)(3,3)(4,3) = free free free   <- agent in the centre
+    #        (2,4)(3,4)(4,4)   free free free
+    assert win == (0, 2, 0, 0, 0, 0, 0, 0, 0)
+    # Agent in the top-left playable corner: the wall border must show up as
+    # WALL along the top row and the left column.
+    win_corner = model.window((1, 1), frozenset())
+    assert win_corner == (1, 1, 1, 1, 0, 0, 1, 0, 0)
 
 
 def test_particle_filter_tracks_true_state():
@@ -130,8 +124,7 @@ def test_particle_filter_tracks_true_state():
 def test_particle_filter_survives_depletion():
     """An impossible observation must trigger reinvigoration, not a crash."""
     model = BoxPushModel(TEST_MAP)
-    pf = ParticleFilter(model, n_particles=50, max_attempts_factor=2,
-                        rng=random.Random(1))
+    pf = ParticleFilter(model, n_particles=50, rng=random.Random(1))
     pf.initialize()
     impossible = ((1,) * 9,)  # walls everywhere — matches no free cell
     stats = pf.update((0,), impossible)

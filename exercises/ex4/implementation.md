@@ -82,27 +82,21 @@ Reward is sparse and identical to previous assignments: 1.0 exactly when all
 goal cells are covered by boxes (terminal), else 0. The code's γ default is
 0.95 (matching previous assignments), but the CLI default — and every
 reported experiment — uses **γ = 0.99** for a longer effective planning
-horizon; see `report.md` §5, where the deviation is declared.
+horizon; see `report.md` §3, where the deviation is declared.
 
-**Observation function — both alternatives implemented** (`window` /
-`observe`, placement selected by `obs_mode` via the shared `OBS_OFFSETS`
-table):
-
-* `"egocentric"` (**Alternative B**, the default): a 3×3 window *centred* on
-  the agent's true location.
-* `"north"` (**Alternative A**): a 3×3 window lying *immediately north* of
-  the agent — its bottom row is the row directly above the agent, columns
-  x−1..x+1 — regardless of any facing direction. Near the top border parts
-  of this window fall off the board and read as WALL.
+**Observation function — Alternative B, egocentric** (`window` / `observe`,
+offsets in the module-level `OBS_OFFSETS`): a 3×3 window *centred* on the
+agent's true location, row-major with the northernmost row first.
 
 Each cell is FREE / WALL / BOX; goal cells and other agents read as FREE,
 keeping the window a deterministic function of the agent's own location plus
-the box layout (O(o|s′)=1 iff o is exactly that window). We use B for the
-report: symmetric information for all four move directions, never sticks out
-of a wall-bordered board, and localizes faster (in smoke runs the north
-window needed ~3× more steps on the two-robot map). Neither is MiniGrid's
-built-in facing-forward view — both are our own slices of the full board, as
-the assignment requires. Select with `--obs egocentric|north`.
+the box layout (O(o|s′)=1 iff o is exactly that window). Out-of-bounds cells
+read as WALL. The assignment asks for one of the two alternatives; we chose B
+because it gives symmetric information for all four move directions, never
+sticks out of a wall-bordered board, and constrains the belief from four sides
+at once so localization is faster (see `report.md` §4). It is **not**
+MiniGrid's built-in facing-forward view — it is our own slice of the full
+board, as the assignment requires.
 
 ## 4. `pomdp_env.py` — the real-world adapter
 
@@ -155,7 +149,7 @@ in the original POMCP paper.
   every single time and reinvigoration never fired — mean acceptance rate
   19.1%, but only 1.0% at the worst step (48,804 of 50,000 permitted
   attempts). The fallback is therefore unexercised in practice yet not
-  redundant; see `report.md` §5.
+  redundant; see `report.md` §3.
 
 ## 6. `pomcp.py` — the planner
 
@@ -247,7 +241,7 @@ lottery rather than planning quality; reported as a deviation).
 | `test_observation_function_matches_under_stochastic_dynamics` | Under normal stochastic dynamics, the wrapper's real-grid window always equals the model's window for the true state. |
 | `test_particle_filter_tracks_true_state` | Along a random-action episode, the true hidden state stays inside the 300-particle belief in >90 % of steps. |
 | `test_particle_filter_survives_depletion` | An impossible observation triggers reinvigoration and still yields N particles. |
-| `test_north_window_semantics` | Alternative A's window really sits immediately north of the agent (bottom row = the row above it, columns x−1..x+1) and reads off-board cells as WALL. |
+| `test_egocentric_window_semantics` | The window really is the 3×3 block centred on the agent (a box directly above shows in the top-middle cell) and the wall border reads as WALL. |
 | `test_pomcp_budget_is_enforced` | `plan()` with a 0.5 s budget returns within tolerance and completes >100 simulations. |
 | `test_online_loop_solves_single_scenario` | A full episode with a 0.3 s budget actually solves the single-robot map. |
 
@@ -258,7 +252,7 @@ success even at a 0.1 s budget.
 
 | Decision | Choice | Why |
 |---|---|---|
-| Observation | Alternative B (egocentric 3×3) by default; Alternative A ("north") also implemented, `--obs` selects | symmetric info for direct moves; always in-bounds; faster localization (A kept for comparison) |
+| Observation | Alternative B (egocentric 3×3) | symmetric info for direct moves; always in-bounds; faster localization |
 | Action space | 4 compass directions (joint for 2 robots) | matches assignment's direct-move semantics; rotations are information-free bookkeeping |
 | Belief | 500 unweighted particles, full states | original POMCP representation; boxes inside particles because push outcomes depend on hidden location |
 | Belief update | rejection sampling + map-based reinvigoration | assignment-mandated; deterministic obs ⇒ depletion must be handled |
@@ -314,7 +308,7 @@ consequentially (shorter episodes, no 20 s-per-decision multiplier).
 
 ## 11. Results at a glance
 
-Full 30-run sweep, mean/std over solved runs only (see `report.md` §7 for the
+Full 30-run sweep, mean/std over solved runs only (see `report.md` §2 for the
 discussion):
 
 | Scenario | Budget | Mean steps | Std | Solve rate |
@@ -339,4 +333,4 @@ penalty shrinks from ≈2.1× to ≈1.4× the single-robot cost.
   and the start location, but *not* how many POMCP simulations fit inside a
   wall-clock budget — that depends on machine load. Cells sensitive to a rare
   truncation therefore vary between executions of the same command; see
-  `report.md` §7.
+  `report.md` §2.

@@ -20,7 +20,7 @@ from __future__ import annotations
 import math
 import random
 import time
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence
 
 from pomdp_model import (
     DIR_VECS,
@@ -31,8 +31,6 @@ from pomdp_model import (
     State,
     joint_actions,
 )
-
-RolloutPolicy = Callable[[State, random.Random], JointAction]
 
 
 class _Node:
@@ -73,7 +71,6 @@ class POMCPPlanner:
         gamma: float = 0.95,
         exploration_c: float = 1.0,
         max_depth: int = 60,
-        rollout_policy: Optional[RolloutPolicy] = None,
         rng: Optional[random.Random] = None,
     ) -> None:
         """Configures the planner.
@@ -92,8 +89,6 @@ class POMCPPlanner:
             exploration_c: UCB1 exploration constant ``c``.
             max_depth: Search/rollout horizon; simulations are cut off once
                 ``depth >= max_depth`` (where gamma**depth is negligible).
-            rollout_policy: Policy used beyond the tree; defaults to the
-                greedy-with-noise :class:`HeuristicRolloutPolicy`.
             rng: Random source (a fresh one is created if omitted).
         """
         self.model = model
@@ -102,7 +97,7 @@ class POMCPPlanner:
         self.max_depth = max_depth
         self.rng = rng or random.Random()
         self.actions = joint_actions(model.n_agents)
-        self.rollout_policy = rollout_policy or HeuristicRolloutPolicy(model)
+        self.rollout_policy = HeuristicRolloutPolicy(model)
         self._root: Optional[_Node] = None
         self.last_stats: dict = {}
 
@@ -149,16 +144,8 @@ class POMCPPlanner:
             n_simulations += 1
 
         self._root = root
-        best = self._best_root_action(root)
-        self.last_stats = {
-            "simulations": n_simulations,
-            "root_visits": root.visits,
-            "root_values": {
-                edge.action: (round(edge.value, 4), edge.visits)
-                for edge in (root.children or [])
-            },
-        }
-        return best
+        self.last_stats = {"simulations": n_simulations, "root_visits": root.visits}
+        return self._best_root_action(root)
 
     def _simulate(
         self, state: State, node: _Node, depth: int, deadline: float
@@ -193,12 +180,9 @@ class POMCPPlanner:
         edge.value += (value - edge.value) / edge.visits
         return value
 
-    def _preferred(self, state: State) -> Optional[frozenset]:
-        """The rollout policy's greedy joint action(s) at ``state``, if any."""
-        greedy = getattr(self.rollout_policy, "greedy", None)
-        if greedy is None:
-            return None
-        return frozenset({greedy(state)})
+    def _preferred(self, state: State) -> frozenset:
+        """The rollout policy's greedy joint action at ``state``."""
+        return frozenset({self.rollout_policy.greedy(state)})
 
     def _ucb_select(self, node: _Node) -> _ActionEdge:
         """UCB1 action selection; untried actions are tried first, and among

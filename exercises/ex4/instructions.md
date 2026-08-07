@@ -76,31 +76,18 @@ results table in `report.md` (section 6) and write the discussion
 --depth 60                     POMCP search / rollout horizon
 --gamma 0.95                   discount factor
 --max-steps 200                episode truncation limit
---obs egocentric               observation function: 'egocentric' =
-                               Alternative B (3x3 window centred on the
-                               agent, the default used for the report) or
-                               'north' = Alternative A (3x3 window
-                               immediately north of the agent)
 --seed 0                       base seed (run i uses seed base+10000*i)
 --jobs 1                       parallel episodes
 --quick                        3 runs at 0.1 s budget (smoke test)
 --out PREFIX                   output prefix for the .log/.json files
 ```
 
+The observation function is Alternative B (a 3x3 window centred on the agent);
+see `report.md` §4 for why.
+
 Example — watch a single verbose episode's belief behaviour: run the tests
 or a `--quick` run and read the DEBUG lines in the `.log` file (particle
 acceptance/reinvigoration counts and POMCP simulation counts per step).
-
-Example — compare the two observation alternatives head-to-head:
-
-```bash
-.venv/bin/python exercises/ex4/solution_ex4.py --quick --obs egocentric --out exercises/ex4/smoke_ego
-.venv/bin/python exercises/ex4/solution_ex4.py --quick --obs north      --out exercises/ex4/smoke_north
-```
-
-(In our smoke runs the north window localizes noticeably more slowly — it
-carries no information about the cells east/west/south of the agent — which
-is part of why Alternative B is the default.)
 
 ## 5. What to check while it runs
 
@@ -122,7 +109,7 @@ Then check the DEBUG lines for `pf_accepted` close to N and `reinvig=0` —
 persistent reinvigoration, or `attempts` approaching the 100·N cap, would
 suggest raising `--particles`. Our measurements (178 belief updates):
 accepted 500/500 every time, reinvigoration 0, acceptance rate 19.1% mean
-but only 1.0% at the worst step. See `report.md` §5.
+but only 1.0% at the worst step. See `report.md` §3.
 
 ## 6. POMCP implementation details (`pomcp.py`)
 
@@ -139,7 +126,7 @@ on states sampled from the belief and on the known map/box layout.
 | Preferred actions | When a tree node is expanded, the rollout policy's greedy joint action is marked "preferred" and tried first among the untried actions, warm-starting the 16-arm joint search. | `_Node.preferred`, `POMCPPlanner._preferred()`, and the preferred-first branch in `POMCPPlanner._ucb_select`. |
 
 Measured over a full 30-run sweep (`--jobs 4`), mean/std over solved runs
-only (discussion in `report.md` §7–§8):
+only (discussion in `report.md` §2 and §5):
 
 | Scenario | Budget | Mean steps | Std | Solve rate |
 |---|---|---|---|---|

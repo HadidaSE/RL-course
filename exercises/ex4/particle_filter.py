@@ -28,6 +28,10 @@ from typing import List, Optional
 
 from pomdp_model import BoxPushModel, JointAction, Observation, State
 
+# Rejection sampling gives up after this many simulations per update
+# (as a multiple of N) and falls back to map-based reinvigoration.
+MAX_ATTEMPTS_FACTOR = 100
+
 
 class ParticleFilter:
     """Bag-of-particles belief over Box Pushing world states."""
@@ -36,7 +40,6 @@ class ParticleFilter:
         self,
         model: BoxPushModel,
         n_particles: int = 500,
-        max_attempts_factor: int = 100,
         rng: Optional[random.Random] = None,
     ) -> None:
         """Creates an (empty) particle filter.
@@ -45,14 +48,10 @@ class ParticleFilter:
             model: Generative model shared with the POMCP planner.
             n_particles: Number of particles ``N`` maintained after every
                 update.
-            max_attempts_factor: Rejection sampling is capped at
-                ``max_attempts_factor * N`` simulations before falling back
-                to map-based reinvigoration.
             rng: Random source (a fresh one is created if omitted).
         """
         self.model = model
         self.n_particles = n_particles
-        self.max_attempts_factor = max_attempts_factor
         self.rng = rng or random.Random()
         self.particles: List[State] = []
 
@@ -127,7 +126,7 @@ class ParticleFilter:
 
         new_particles: List[State] = []
         attempts = 0
-        max_attempts = self.max_attempts_factor * self.n_particles
+        max_attempts = MAX_ATTEMPTS_FACTOR * self.n_particles
         while len(new_particles) < self.n_particles and attempts < max_attempts:
             state = self.rng.choice(self.particles)
             next_state, obs, _, _ = self.model.step(state, action, self.rng)
