@@ -159,8 +159,8 @@ in the original POMCP paper.
 
 ## 6. `pomcp.py` — the planner
 
-`POMCPPlanner.plan(particles, time_budget)` builds a fresh search tree per
-decision and runs simulations until the deadline:
+`POMCPPlanner.plan(particles, time_budget)` runs simulations from the current
+belief until the deadline:
 
 * **Root sampling**: each simulation starts from a state drawn uniformly
   from the particle filter — POMCP operates directly on the particle belief,
@@ -169,16 +169,30 @@ decision and runs simulations until the deadline:
   `Q(ha) + c·sqrt(log N(h) / N(ha))` with `c = 1.0`; untried actions first.
   Tree nodes are histories; children are keyed by (action, observation), so
   identical observation sequences share statistics.
+* **Tree reuse across decisions**: the tree is *not* rebuilt every step. After
+  the real action `a` and observation `o`, `advance(a, o)` prunes it to the
+  `T(hao)` subtree, so the statistics gathered by earlier simulations are
+  carried into the next decision — the canonical Silver & Veness (2010)
+  formulation. `reset()` clears it at the start of each episode, and if the
+  real observation was never simulated (no matching child) the tree is simply
+  dropped and the next `plan()` starts fresh.
+* **Preferred actions**: on expansion, the rollout policy's greedy joint
+  action is recorded in `_Node.preferred` and tried first among the untried
+  actions, warm-starting the 16-arm joint search instead of probing arms in
+  random order.
 * **Expansion + rollout**: the first time a simulation leaves the tree, one
   node is added and the value below it is estimated by a depth-limited
-  rollout (horizon `max_depth = 60`, where γ⁶⁰ ≈ 0.046).
+  rollout (horizon `max_depth = 60`).
 * **Rollout policy** (`HeuristicRolloutPolicy`): greedy-with-noise — ε = 0.2
   fully random; otherwise each agent prefers pushes that bring a box closer
-  to an uncovered goal, then moves that reduce Manhattan distance to the
-  nearest unfinished box; wall bumps and deadlock-prone pushes are
-  penalized. The assignment allows "a random or simple heuristic policy";
-  a purely random rollout essentially never reaches the sparse terminal
-  reward within the horizon, starving the search of signal at 1 s budgets.
+  to an uncovered goal, then moves that reduce Manhattan distance to *its
+  assigned* unfinished box; wall bumps and deadlock-prone pushes are
+  penalized. With two robots, `_assign()` first greedily matches each agent
+  to a **distinct** unfinished box (nearest-first, hand-rolled — no `scipy`)
+  so the robots do not chase the same one. The assignment allows "a random or
+  simple heuristic policy"; a purely random rollout essentially never reaches
+  the sparse terminal reward within the horizon, starving the search of
+  signal at 1 s budgets.
 * **Backup**: returns are propagated up, updating visit counts and running
   means of every (history, action) edge on the path.
 * **Budget enforcement**: the `time.monotonic()` deadline is checked in the
@@ -187,6 +201,10 @@ decision and runs simulations until the deadline:
   estimated value among visited actions, per the assignment.
 * **Multi-agent**: planning is centralized — joint actions (4² = 16 arms at
   each node) over joint location hypotheses.
+* **No privileged information**: the rollout heuristic, the agent→box
+  matching and the preferred-action choice all read a state *sampled from the
+  belief* plus the known map/box layout — never the true hidden location. The
+  executed action is the root action, i.e. an average over the whole belief.
 
 ## 7. `solution_ex4.py` — online loop and experiments
 
@@ -195,18 +213,24 @@ decision and runs simulations until the deadline:
 ```python
 obs, _ = env.reset()
 pf.initialize(); pf.condition_on_observation(obs)   # uniform b0 ∩ first obs
+planner.reset()                                      # clear retained tree
 while not done:
     action = planner.plan(pf.particles, time_budget) # 1. plan (POMCP)
     obs, r, term, trunc, _ = env.step(action)        # 2. act in real env
     pf.update(action, obs)                           # 3. belief update
+    planner.advance(action, obs)                     #    prune tree to T(hao)
 ```
 
 `run_experiment` repeats it `n_runs = 30` times per (scenario, budget) cell
 with per-run seeds (`base_seed + 10000·i`), optionally in parallel
 (`--jobs`, one episode per process), and aggregates mean/std steps and solve
-rate. Truncated episodes (200-step cap) count at the cap and as failures.
-Results go to a log file (console mirrors INFO; DEBUG keeps per-step
-particle/simulation diagnostics) and a raw JSON.
+rate. Truncated episodes (200-step cap) count as failures and are **excluded
+from the reported mean/std** — a run that never solved has no meaningful
+"steps to solve", and at the cap a single one would distort a 30-run cell
+badly. The solve rate reports how many were excluded, and the JSON keeps both
+views (`mean_steps` / `std_steps` over solved runs, `mean_steps_all` /
+`std_steps_all` over all runs). Results go to a log file (console mirrors
+INFO; DEBUG keeps per-step particle/simulation diagnostics) and a raw JSON.
 
 **Scenarios** (`MAPS`): `single` (1 robot, 1 box, 1 goal) and `multi`
 (2 robots, 2 boxes, 2 goals) on 7×6 boards, plus the full Assignment-1/2
@@ -238,10 +262,11 @@ success even at a 0.1 s budget.
 | Action space | 4 compass directions (joint for 2 robots) | matches assignment's direct-move semantics; rotations are information-free bookkeeping |
 | Belief | 500 unweighted particles, full states | original POMCP representation; boxes inside particles because push outcomes depend on hidden location |
 | Belief update | rejection sampling + map-based reinvigoration | assignment-mandated; deterministic obs ⇒ depletion must be handled |
-| Rollouts | greedy-with-noise heuristic (ε = 0.2) | sparse reward starves random rollouts at 1 s budgets |
+| Rollouts | greedy-with-noise heuristic (ε = 0.2) with agent→box task allocation | sparse reward starves random rollouts at 1 s budgets; distinct box assignment stops two robots chasing the same box |
 | Horizon | 60 | ≈3–5× the typical solve length. At the code default γ = 0.95, γ⁶⁰ ≈ 0.046 so deeper reward is negligible; at the reported γ = 0.99, γ⁶⁰ ≈ 0.547, so the horizon is set by solve length rather than by the discount tail |
 | UCB c | 1.0 | recommended start; Q ∈ [0,1] here so c = 1 explores adequately |
-| Tree | fresh per decision | simple and correct; belief carried between steps by the particle filter |
+| Tree | retained across decisions, pruned to `T(hao)` | canonical POMCP; reuses earlier simulations instead of discarding them each step |
+| Node expansion | preferred (greedy) action tried first | warm-starts the 16-arm joint search under a tight budget |
 | Starts | randomized uniformly per reset | the true initial state should be a sample from b₀ |
 
 ## 10. Bug found and fixed: simultaneous agent/box collisions
@@ -287,33 +312,22 @@ infrastructure (`environment/stochastic_env.py`) also used by Assignment 2,
 so any 2+-agent stochastic scenario there could hit it too, just less
 consequentially (shorter episodes, no 20 s-per-decision multiplier).
 
-## 11. Optional planner enhancements (off by default)
+## 11. Results at a glance
 
-Three improvements sit on top of the baseline POMCP, each behind its own
-flag (`--improved` turns on all three). They are **disabled by default** so
-the baseline results stay reproducible.
+Full 30-run sweep, mean/std over solved runs only (see `report.md` §7 for the
+discussion):
 
-| Flag | Change | Where |
-|------|--------|-------|
-| `--reuse-tree` | The tree is retained between decisions and pruned to the `T(hao)` subtree after each real action/observation, rather than rebuilt every step — the canonical Silver & Veness (2010) formulation. | `POMCPPlanner.plan` (reuses `self._root`), plus `reset()` / `advance()`; the online loop calls `planner.reset()` at episode start and `planner.advance(a, o)` after each belief update. |
-| `--smart-rollout` | The rollout greedily matches each agent to a **distinct** unfinished box, so two robots stop chasing the same one. Matching is hand-rolled (no `scipy`). | `HeuristicRolloutPolicy.assign_tasks` / `_assign()`; `_best_direction()` takes an optional `assigned_box`. |
-| `--preferred-actions` | On node expansion the rollout policy's greedy joint action is marked preferred and tried first among untried actions, warm-starting the 16-arm joint search. | `_Node.preferred`, `POMCPPlanner._preferred()`, preferred-first branch in `_ucb_select`. |
+| Scenario | Budget | Mean steps | Std | Solve rate |
+|---|---|---|---|---|
+| single | 1 s | 6.70 | 3.29 | 100% (30/30) |
+| single | 20 s | 6.63 | 3.19 | 100% (30/30) |
+| multi | 1 s | 13.83 | 8.20 | 100% (30/30) |
+| multi | 20 s | 9.28 | 3.08 | 97% (29/30) |
 
-All three are assignment-compliant: no external POMDP/planning/RL library,
-no change to the reward/termination/`gamma` definition, and no access to the
-agent's true location — they read only belief-sampled states and the known
-map.
-
-**Measured effect** (full 30-run sweep, baseline and improved run
-back-to-back, same machine/seeds/`--jobs 4`): the only cell that moves is
-`multi | 1 s`, 26.50 → 13.83 mean steps, std 46.92 → 8.20, solve rate
-93% → 100%. That is a *reliability* gain, not a speedup — on solved runs
-alone the planners are indistinguishable (14.11 vs 13.83). The baseline
-truncated twice at 1 s (worst run 200 steps), the improved planner zero
-times (worst run 46). All three enhancements make each second of search go
-further, which matters only where compute is the binding constraint: at 1 s
-on the 16-arm two-robot problem it is; at 20 s, and on the single-robot map
-at either budget, it is not. Full numbers in `report.md` §8.
+The single-robot map is never compute-starved, so the budget changes nothing
+(6.70 → 6.63). The two-robot map is, so the larger budget cuts ~33% of the
+steps (13.83 → 9.28) and tightens the spread (8.20 → 3.08) — the multi-agent
+penalty shrinks from ≈2.1× to ≈1.4× the single-robot cost.
 
 ## 12. What is intentionally NOT here
 
@@ -323,6 +337,6 @@ at either budget, it is not. Full numbers in `report.md` §8.
   `true_state()` is used exclusively by tests and DEBUG logging.
 * No bit-reproducibility. Seeds fix the environment's stochastic dynamics
   and the start location, but *not* how many POMCP simulations fit inside a
-  wall-clock budget — that depends on machine load. Cells whose mean is
-  dominated by rare truncations (notably `multi | 1 s`) therefore vary
-  between executions of the same command; see `report.md` §7.
+  wall-clock budget — that depends on machine load. Cells sensitive to a rare
+  truncation therefore vary between executions of the same command; see
+  `report.md` §7.

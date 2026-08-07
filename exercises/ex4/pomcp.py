@@ -75,10 +75,16 @@ class POMCPPlanner:
         max_depth: int = 60,
         rollout_policy: Optional[RolloutPolicy] = None,
         rng: Optional[random.Random] = None,
-        reuse_tree: bool = False,
-        preferred_actions: bool = False,
     ) -> None:
         """Configures the planner.
+
+        The search tree is retained across decisions and pruned to the
+        ``T(hao)`` subtree after each real action/observation (canonical
+        POMCP, Silver & Veness 2010), so prior simulations are reused; call
+        :meth:`advance` after each real step and :meth:`reset` at the start of
+        each episode.  When a node is expanded the rollout policy's greedy
+        joint action is marked "preferred" and tried first among untried
+        actions, warm-starting the search.
 
         Args:
             model: Generative model ``G(s, a) -> (s', o, r)``.
@@ -89,15 +95,6 @@ class POMCPPlanner:
             rollout_policy: Policy used beyond the tree; defaults to the
                 greedy-with-noise :class:`HeuristicRolloutPolicy`.
             rng: Random source (a fresh one is created if omitted).
-            reuse_tree: If True, the search tree is retained across decisions
-                and pruned to the ``T(hao)`` subtree after each real
-                action/observation (canonical POMCP, Silver & Veness 2010),
-                so prior simulations are not thrown away every step.  Call
-                :meth:`advance` after each real step and :meth:`reset` at the
-                start of each episode.
-            preferred_actions: If True, when a node is expanded the rollout
-                policy's greedy joint action is marked "preferred" and tried
-                first among untried actions, warm-starting the search.
         """
         self.model = model
         self.gamma = gamma
@@ -106,8 +103,6 @@ class POMCPPlanner:
         self.rng = rng or random.Random()
         self.actions = joint_actions(model.n_agents)
         self.rollout_policy = rollout_policy or HeuristicRolloutPolicy(model)
-        self.reuse_tree = reuse_tree
-        self.preferred_actions = preferred_actions
         self._root: Optional[_Node] = None
         self.last_stats: dict = {}
 
@@ -118,15 +113,14 @@ class POMCPPlanner:
     def advance(self, action: JointAction, observation: Observation) -> None:
         """Prunes the retained tree to the ``T(hao)`` subtree.
 
-        No-op unless ``reuse_tree`` is enabled.  If the real observation was
-        never simulated (so no matching child exists), the tree is dropped
-        and the next :meth:`plan` starts fresh.
+        If the real observation was never simulated (so no matching child
+        exists), the tree is dropped and the next :meth:`plan` starts fresh.
 
         Args:
             action: The joint action actually executed.
             observation: The real observation returned by the environment.
         """
-        if not self.reuse_tree or self._root is None or self._root.children is None:
+        if self._root is None or self._root.children is None:
             self._root = None
             return
         edge = next((e for e in self._root.children if e.action == action), None)
@@ -135,8 +129,8 @@ class POMCPPlanner:
     def plan(self, particles: Sequence[State], time_budget: float) -> JointAction:
         """Selects an action for the current belief within a time budget.
 
-        Builds a fresh search tree rooted at the current belief and runs
-        simulations until the wall-clock deadline expires.
+        Continues from the retained ``T(hao)`` subtree (or a fresh root if
+        none) and runs simulations until the wall-clock deadline expires.
 
         Args:
             particles: Current belief — the particle filter's particles.
@@ -147,10 +141,7 @@ class POMCPPlanner:
             The joint action with the highest estimated value at the root.
         """
         deadline = time.monotonic() + time_budget
-        if self.reuse_tree and self._root is not None:
-            root = self._root
-        else:
-            root = _Node()
+        root = self._root if self._root is not None else _Node()
         n_simulations = 0
         while time.monotonic() < deadline:
             state = self.rng.choice(particles)
@@ -180,8 +171,7 @@ class POMCPPlanner:
         if node.children is None:
             node.children = [_ActionEdge(a) for a in self.actions]
             node.visits = 1
-            if self.preferred_actions:
-                node.preferred = self._preferred(state)
+            node.preferred = self._preferred(state)
             return self._rollout(state, depth)
 
         edge = self._ucb_select(node)
@@ -256,13 +246,14 @@ class HeuristicRolloutPolicy:
     """Greedy-with-noise rollout policy.
 
     With probability ``epsilon`` a uniformly random joint action is taken;
-    otherwise each agent independently picks the direction with the best
-    myopic score:
+    otherwise each agent picks the direction with the best myopic score:
 
     * pushing a box so that it gets closer to an uncovered goal is best;
-    * otherwise, moving closer (Manhattan) to the nearest box that is not
-      yet on a goal is preferred;
+    * otherwise, moving closer (Manhattan) to its assigned box is preferred;
     * bumping into walls and non-improving pushes are penalised.
+
+    With more than one agent, agents are first greedily matched to *distinct*
+    unfinished boxes so two robots do not chase the same box.
 
     Rollouts legitimately use the *sampled* state — POMCP rollouts always
     run on fully specified states drawn from the belief.
@@ -272,25 +263,15 @@ class HeuristicRolloutPolicy:
     PUSH_BAD = -50.0
     BLOCKED = -1000.0
 
-    def __init__(
-        self,
-        model: BoxPushModel,
-        epsilon: float = 0.2,
-        assign_tasks: bool = False,
-    ) -> None:
+    def __init__(self, model: BoxPushModel, epsilon: float = 0.2) -> None:
         """Creates the rollout policy.
 
         Args:
             model: Generative model (for map/goal geometry).
             epsilon: Probability of a uniformly random joint action.
-            assign_tasks: If True (and there is more than one agent), each
-                agent is greedily matched to a *distinct* unfinished box, so
-                two robots do not chase the same box.  Otherwise every agent
-                heads toward the nearest unfinished box independently.
         """
         self.model = model
         self.epsilon = epsilon
-        self.assign_tasks = assign_tasks
         self.all_actions = joint_actions(model.n_agents)
 
     def __call__(self, state: State, rng: random.Random) -> JointAction:
@@ -304,11 +285,7 @@ class HeuristicRolloutPolicy:
         """Deterministic (greedy) joint action; ties broken by ``rng`` if
         given, else by the first candidate (so it is usable as a stable
         "preferred action" outside a rollout)."""
-        assignment = (
-            self._assign(state)
-            if self.assign_tasks and self.model.n_agents > 1
-            else None
-        )
+        assignment = self._assign(state) if self.model.n_agents > 1 else None
         return tuple(
             self._best_direction(
                 state, i, rng, assignment.get(i) if assignment else None

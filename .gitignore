@@ -64,3 +64,4 @@ venv.bak/
 # Mac OS
 .DS_Store
 pddl/*.pddl
+.agents/

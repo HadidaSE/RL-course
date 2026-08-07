@@ -91,9 +91,6 @@ class ExperimentConfig:
     obs_mode: str = "egocentric"
     base_seed: int = 0
     jobs: int = 1
-    reuse_tree: bool = False
-    smart_rollout: bool = False
-    preferred_actions: bool = False
     verbose: bool = False
 
 
@@ -120,25 +117,22 @@ def run_episode(
         (wall-clock episode duration).
     """
     ascii_map = MAPS[scenario]
-    model = BoxPushModel(ascii_map, obs_mode=config.obs_mode)
-    env = BoxPushPOMDPEnv(
+    model = BoxPushModel(ascii_map, obs_mode=config.obs_mode) #The imagined world
+    env = BoxPushPOMDPEnv( #The real world
         ascii_map,
         max_steps=config.max_steps,
         randomize_start=True,
         seed=seed,
         obs_mode=config.obs_mode,
     )
-    planner = POMCPPlanner(
+    planner = POMCPPlanner( #The decision maker
         model,
         gamma=config.gamma,
         exploration_c=config.exploration_c,
         max_depth=config.max_depth,
         rng=random.Random(seed + 1_000_003),
-        reuse_tree=config.reuse_tree,
-        preferred_actions=config.preferred_actions,
     )
     planner.rollout_policy.epsilon = config.rollout_epsilon
-    planner.rollout_policy.assign_tasks = config.smart_rollout
     pf = ParticleFilter(
         model, n_particles=config.n_particles, rng=random.Random(seed + 2_000_003)
     )
@@ -234,39 +228,54 @@ def run_experiment(
 
     steps = np.array([r["steps"] for r in results], dtype=float)
     solved = np.array([r["solved"] for r in results])
+    solved_steps = np.array(
+        [r["steps"] for r in results if r["solved"]], dtype=float
+    )
+    # Headline statistics exclude failed (truncated/unsolved) runs so the
+    # step counts reflect actual solve lengths; the solve rate below reports
+    # how many runs were dropped.  Falls back to all runs if none solved.
+    reported = solved_steps if solved_steps.size else steps
     return {
         "scenario": scenario,
         "budget": time_budget,
         "obs_mode": config.obs_mode,
-        "mean_steps": float(np.mean(steps)),
-        "std_steps": float(np.std(steps)),
+        "mean_steps": float(np.mean(reported)),
+        "std_steps": float(np.std(reported)),
+        "mean_steps_all": float(np.mean(steps)),
+        "std_steps_all": float(np.std(steps)),
         "solve_rate": float(np.mean(solved)),
         "n_runs": len(results),
+        "n_solved": int(solved.sum()),
         "runs": results,
     }
 
 
 def print_summary(all_results: List[dict]) -> None:
-    """Logs the final results table required by the assignment."""
+    """Logs the final results table required by the assignment.
+
+    Mean/std steps are computed over solved runs only (failed/truncated runs
+    excluded); the ``Solved`` column shows how many runs were kept.
+    """
     logger.info("")
-    logger.info("=" * 68)
-    logger.info("RESULTS SUMMARY")
-    logger.info("=" * 68)
+    logger.info("=" * 80)
+    logger.info("RESULTS SUMMARY  (mean/std over solved runs only)")
+    logger.info("=" * 80)
     logger.info(
-        "%-12s %-10s %12s %12s %12s",
-        "Scenario", "Budget", "Mean steps", "Std steps", "Solve rate",
+        "%-12s %-10s %12s %12s %12s %10s",
+        "Scenario", "Budget", "Mean steps", "Std steps", "Solve rate", "Solved",
     )
-    logger.info("-" * 68)
+    logger.info("-" * 80)
     for res in all_results:
         logger.info(
-            "%-12s %-10s %12.2f %12.2f %11.0f%%",
+            "%-12s %-10s %12.2f %12.2f %11.0f%% %10s",
             res["scenario"],
             f"{res['budget']:g}s",
             res["mean_steps"],
             res["std_steps"],
             100 * res["solve_rate"],
+            f"{res.get('n_solved', res['n_runs'])}/{res['n_runs']}",
         )
-    logger.info("=" * 68)
+    logger.info("=" * 80)
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
@@ -297,18 +306,6 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--jobs", type=int, default=1,
                         help="Parallel episodes (keep <= physical cores so "
                              "each decision still gets a full core).")
-    parser.add_argument("--reuse-tree", action="store_true",
-                        help="Retain the POMCP tree across decisions and "
-                             "prune to T(hao) each step (canonical POMCP).")
-    parser.add_argument("--smart-rollout", action="store_true",
-                        help="Task-allocation rollout: match each agent to a "
-                             "distinct unfinished box.")
-    parser.add_argument("--preferred-actions", action="store_true",
-                        help="Try the greedy joint action first when a node "
-                             "is expanded.")
-    parser.add_argument("--improved", action="store_true",
-                        help="Enable all three enhancements at once "
-                             "(--reuse-tree --smart-rollout --preferred-actions).")
     parser.add_argument("--verbose", action="store_true",
                         help="Log per-step particle-filter and POMCP "
                              "diagnostics at DEBUG level (acceptance counts, "
@@ -356,9 +353,6 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         obs_mode=args.obs,
         base_seed=args.seed,
         jobs=args.jobs,
-        reuse_tree=args.reuse_tree or args.improved,
-        smart_rollout=args.smart_rollout or args.improved,
-        preferred_actions=args.preferred_actions or args.improved,
         verbose=args.verbose,
     )
     if args.quick:

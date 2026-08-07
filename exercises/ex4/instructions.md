@@ -83,14 +83,6 @@ results table in `report.md` (section 6) and write the discussion
                                immediately north of the agent)
 --seed 0                       base seed (run i uses seed base+10000*i)
 --jobs 1                       parallel episodes
---reuse-tree                   retain the POMCP tree across decisions and
-                               prune it to T(hao) each step (canonical POMCP)
---smart-rollout                task-allocation rollout: match each agent to a
-                               distinct unfinished box
---preferred-actions            try the greedy joint action first when a tree
-                               node is expanded
---improved                     enable all three enhancements at once
-                               (--reuse-tree --smart-rollout --preferred-actions)
 --quick                        3 runs at 0.1 s budget (smoke test)
 --out PREFIX                   output prefix for the .log/.json files
 ```
@@ -113,7 +105,9 @@ is part of why Alternative B is the default.)
 ## 5. What to check while it runs
 
 * `solved=True` on (nearly) all runs — a `solved=False` line means the
-  episode hit the 200-step cap and is counted at 200 steps.
+  episode hit the 200-step cap. Such runs count as failures in the solve rate
+  and are excluded from the reported mean/std (the JSON also keeps
+  `mean_steps_all` / `std_steps_all`, which include them at the cap).
 
 Per-step particle-filter diagnostics are **not** emitted by default. They
 require `--verbose`, and because pool workers do not inherit the parent's
@@ -126,50 +120,30 @@ logging configuration they only reach the log file under `--jobs 1`:
 
 Then check the DEBUG lines for `pf_accepted` close to N and `reinvig=0` —
 persistent reinvigoration, or `attempts` approaching the 100·N cap, would
-suggest raising `--particles`. Our measured baseline (178 belief updates):
+suggest raising `--particles`. Our measurements (178 belief updates):
 accepted 500/500 every time, reinvigoration 0, acceptance rate 19.1% mean
 but only 1.0% at the worst step. See `report.md` §5.
 
-## 6. Optional POMCP enhancements (`pomcp.py`, `solution_ex4.py`)
+## 6. POMCP implementation details (`pomcp.py`)
 
-Three optional planner improvements were added on top of the baseline POMCP.
-They are **off by default** so the original results stay reproducible, and each
-has its own flag (or use `--improved` to turn on all three). All three are
-assignment-compliant: they do not touch the reward/termination/`gamma`
-definition, use no external POMDP/planning/RL library, and never read the
-agent's true hidden location — they operate only on states sampled from the
-belief and on the known map/box layout.
+Beyond the textbook POMCP loop, the planner has three built-in features (all
+always on). They are assignment-compliant: they do not touch the
+reward/termination/`gamma` definition, use no external POMDP/planning/RL
+library, and never read the agent's true hidden location — they operate only
+on states sampled from the belief and on the known map/box layout.
 
-| Flag | What changed | Where |
-|------|--------------|-------|
-| `--reuse-tree` | The search tree is retained between decisions instead of rebuilt from scratch every step. After the real action `a` and observation `o`, the tree is pruned to the `T(hao)` subtree so earlier simulations are reused (canonical Silver & Veness 2010 POMCP). | `POMCPPlanner.plan` (reuses `self._root`), new `POMCPPlanner.reset()` / `POMCPPlanner.advance(action, obs)`; the online loop in `run_episode` calls `planner.reset()` at episode start and `planner.advance(...)` after each belief update. |
-| `--smart-rollout` | The heuristic rollout now greedily matches each agent to a **distinct** unfinished box (nearest-first), so two robots stop chasing the same box. Matching is hand-rolled (no `scipy`). | `HeuristicRolloutPolicy` gains `assign_tasks`, `_assign()` and a deterministic `greedy()`; `_best_direction()` takes an optional `assigned_box`. |
-| `--preferred-actions` | When a tree node is expanded, the rollout policy's greedy joint action is marked "preferred" and tried first among the untried actions, warm-starting the 16-arm joint search. | `_Node.preferred`, `POMCPPlanner._preferred()`, and the preferred-first branch in `POMCPPlanner._ucb_select`. |
+| Feature | What it does | Where |
+|---------|--------------|-------|
+| Tree reuse | The search tree is retained between decisions instead of rebuilt from scratch every step. After the real action `a` and observation `o`, the tree is pruned to the `T(hao)` subtree so earlier simulations are reused (canonical Silver & Veness 2010 POMCP). | `POMCPPlanner.plan` (reuses `self._root`), `POMCPPlanner.reset()` / `POMCPPlanner.advance(action, obs)`; the online loop in `run_episode` calls `planner.reset()` at episode start and `planner.advance(...)` after each belief update. |
+| Task-allocation rollout | The heuristic rollout greedily matches each agent to a **distinct** unfinished box (nearest-first), so two robots do not chase the same box. Matching is hand-rolled (no `scipy`). | `HeuristicRolloutPolicy._assign()`, the deterministic `greedy()`, and the optional `assigned_box` argument of `_best_direction()`. |
+| Preferred actions | When a tree node is expanded, the rollout policy's greedy joint action is marked "preferred" and tried first among the untried actions, warm-starting the 16-arm joint search. | `_Node.preferred`, `POMCPPlanner._preferred()`, and the preferred-first branch in `POMCPPlanner._ucb_select`. |
 
-Config plumbing lives in `solution_ex4.py`: the `ExperimentConfig` fields
-`reuse_tree` / `smart_rollout` / `preferred_actions`, the matching CLI flags
-(plus `--improved`), and their wiring into the `POMCPPlanner` and rollout
-policy inside `run_episode`.
+Measured over a full 30-run sweep (`--jobs 4`), mean/std over solved runs
+only (discussion in `report.md` §7–§8):
 
-Run the improved planner over the full experiment (writing to a separate
-prefix so the baseline files are untouched):
-
-```bash
-.venv/bin/python exercises/ex4/solution_ex4.py --budgets 1 20 --runs 30 --jobs 4 --improved --out exercises/ex4/sweep_improved
-```
-
-Measured effect over the full 30-run sweep (baseline and improved run
-back-to-back on the same machine with the same seeds and `--jobs 4`):
-
-| Scenario | Budget | Baseline | Improved |
-|---|---|---|---|
-| single | 1 s | 6.83 / std 3.75 / 100% | 6.70 / std 3.29 / 100% |
-| single | 20 s | 6.63 / std 3.04 / 100% | 6.63 / std 3.19 / 100% |
-| multi | 1 s | 26.50 / std 46.92 / 93% | **13.83 / std 8.20 / 100%** |
-| multi | 20 s | 15.70 / std 34.45 / 97% | 15.63 / std 34.37 / 97% |
-
-The large `multi 1s` gain is a **reliability** effect, not a speedup: on
-solved runs alone the two planners are indistinguishable (14.11 vs 13.83
-steps). The baseline truncated twice at 1 s (worst run 200 steps), the
-improved planner zero times (worst run 46) — dropping those two 200-step
-entries is what halves the mean. See `report.md` §8.
+| Scenario | Budget | Mean steps | Std | Solve rate |
+|---|---|---|---|---|
+| single | 1 s | 6.70 | 3.29 | 100% |
+| single | 20 s | 6.63 | 3.19 | 100% |
+| multi | 1 s | 13.83 | 8.20 | 100% |
+| multi | 20 s | 9.28 | 3.08 | 97% |
